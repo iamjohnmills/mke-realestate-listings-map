@@ -1,0 +1,187 @@
+<html>
+<head>
+
+<script src='https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.js'></script>
+<link href='https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.css' rel='stylesheet' />
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body, textarea, input { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Ubuntu,sans-serif; color: #4f566b; }
+  body { text-align: center; box-sizing: border-box; font-size: 14px; line-height: 1.625; -webkit-font-smoothing: antialiased }
+  body > div { position: fixed; display: flex; height: 100%; width: 100%; text-align: left; }
+  section:first-child { flex-basis: 700px; flex-shrink: 0;  }
+  section:last-child {flex-grow: 1; overflow-x: auto; position: relative; background: #000}
+  section:last-child img { max-width: 100%; }
+
+  #map { width: 100%; height: 100%; }
+  .listing-marker { background: #fff; line-height: 11px; color: #000; font-weight: bold; text-align: center; display: inline-block; font-size: 10px; padding: 0 2px; border-radius: 3px; border: 1px solid #000}
+  .listing-marker > span { color: orange; line-height: 0; position: relative; top: 6px; font-size: 26px; }
+  .listing-marker .listing-property > span:after { content: '/'; padding: 0 5px; }
+  .listing-marker .listing-property > span:last-child:after { content: ''; padding: 0; }
+  .listing-marker .listing-price { font-size: 16px; color: #000; }
+
+  .leaflet-popup { margin-bottom: 22px; }
+  .leaflet-popup-content-wrapper { border: 1px solid #000; }
+  .leaflet-popup-content { padding: 10px; }
+  .leaflet-popup-tip-container, .leaflet-popup-close-button { display: none; }
+</style>
+
+<script>
+
+const xhrURL = (options) => {
+  return new Promise(function(resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.addEventListener('load', () => resolve({ success: true, data: JSON.parse(xhr.responseText), params: options.params }));
+    xhr.addEventListener('error', () => resolve({ success: false, message: 'Error getting the URL ' + options.url }));
+    xhr.open(options.method, options.url);
+    xhr.setRequestHeader('Content-type', options.content_type);
+    const params = new URLSearchParams(options.params).toString();
+    xhr.send(params);
+  });
+}
+
+const currencyFormat = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
+
+const kFormatter = num => {
+  return Math.abs(num) > 999 ? Math.sign(num)*((Math.abs(num)/1000).toFixed(1)) + 'k' : Math.sign(num)*Math.abs(num)
+}
+
+const daysToYMD = x => {
+  const y = 365;
+  const y2 = 31;
+  const remainder = x % y;
+  const casio = remainder % y2;
+  const year = (x - remainder) / y;
+  const month = (remainder - casio) / y2;
+  let result = `${(year ? year  + ' Years ': '')}${(month ? month + ' Months ' : '')}${(casio ? casio + ' Days ' : '')}`;
+  return result;
+}
+
+const loadImage = async url => {
+  return new Promise((resolve,reject) => {
+    let img = new Image();
+    img.src = url;
+    img.onload = () => {
+      if(img.naturalWidth === 0) return resolve(false)
+      return resolve(img);
+    }
+  })
+}
+
+const init = async (event) => {
+
+  // Get data from Shorewest - crazy fast
+  const response = await xhrURL({
+    method: 'POST',
+    url: 'https://www.shorewest.com/vp/jsps/COMMON/maps_v6/sphinx3.jsp',
+    content_type: 'application/x-www-form-urlencoded',
+    params: {
+      SITE: 'SHOREW',
+      MAX_RESULT_COUNT: '200',
+      LL_RES_LAT_LOW: '42.99745292325182',
+      LL_RES_LAT_HIGH: '43.16170379063272',
+      LL_RES_LONG_LOW: '-87.92635202407837',
+      LL_RES_LONG_HIGH: '-87.6918625831604',
+      //L_LISTINGSTATUS: 'Sold',
+      L_LISTINGSTATUS: 'Active|Delayed|ActiveWO|Active w/Contract|Pending|Offer-Show|Offer',
+      LC4_V46C: 'Two Family|Multi-Family',
+      //LC4_V46C: 'Business/Commercial',
+      //LC4_V46C: 'Single Family Residential',
+      sortCriteria: 'l_listing_date DESC',
+    }
+  })
+
+  // Normalize data in GeoJson format
+  const features = await response.data.listings.map( (listing,i) => {
+    const listing_details = JSON.parse(listing.LISTING_GENATTRIBS);
+    return {
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [listing.LL_RES_LONG, listing.LL_RES_LAT]
+      },
+      properties: {
+        index: i,
+        title: `${parseInt(listing.L_NO_DAYS_ON_MARKET) < 2 ? '<span>&bull;</span>' : ''}${kFormatter(listing.L_LISTING_PRICE)}`,
+        address_street: `${listing.L_LISTINGADDR1}`,
+        address: `${listing.L_LISTINGADDR1}, ${listing.L_LISTINGCITY} ${listing.L_LISTINGSTATE} ${listing.L_LISTINGZIP}`,
+        price: `<b class="listing-price">${currencyFormat.format(listing.L_LISTING_PRICE)}</b> + ${currencyFormat.format(listing.L_LISTING_TAXES)} Tax`,
+        about: `<span>${listing_details.type ? listing_details.type[0] : response.params.LC4_V46C }</span><span>${listing.LS_TP_GARAGE && listing.LS_TP_GARAGE !== 'None' ? `<b>` + listing.LS_TP_GARAGE + ` Garage</b>` : 'No Garage'}</span>`,
+        on_market: `${listing.L_NO_DAYS_ON_MARKET > 1 ? 'Active ' + daysToYMD(listing.L_NO_DAYS_ON_MARKET) : ''}`,
+        photo_url: `http://${listing.LP_PHOTO_URL}${listing.L_MLS_NUMBER}`,
+        photo_url_ext: `x.jpg`,
+        sw_url: `https://www.shorewest.com/${listing.L_LISTINGSTATE}/${listing.L_NM_COUNTY}/${listing.L_LISTINGCITY}/${listing.LSEARCH_DETAILURL}/${listing.L_MLS_NUMBER}-${listing.L_CD_SOURCE}`
+      },
+    }
+  });
+
+  // Initialize mapbox v.3.3.1 because its faster than mapbox-gl since it renders tiles server-side
+  L.mapbox.accessToken = 'pk.eyJ1IjoianBtMjM0NTYiLCJhIjoiY2tjOWt2MDF0MWxuZDJ5bHFhbWg2NW9heCJ9.Gst9WJa4y4My23BGr20ulg';
+  let map = L.mapbox.map('map');
+  map.setView([43.070953,-87.882912], 15);
+  map.addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/streets-v11', { tileLayer: {format: 'jpg70'} }));
+
+  // Set map features and tooltips
+  const geojson = await L.geoJson({ type: 'FeatureCollection', features: features }, {
+    onEachFeature: function (feature, layer) {
+      const image_el = document.querySelector('#listing-images');
+      const content = `
+        <div>${layer.feature.properties.address_street}</div>
+        <div>${layer.feature.properties.price}</div>
+        <div class="listing-property">${layer.feature.properties.about}</div>
+        <div>${layer.feature.properties.on_market}</div>
+        <div><a href="${layer.feature.properties.sw_url}" target="_blank">Link</a></div>`;
+      layer.bindPopup(content);
+    },
+    pointToLayer: function(feature, ll) {
+      return L.marker(ll, {
+        icon: L.divIcon({
+          className: 'label',
+          html: `<div class="listing-marker" data-index="${feature.properties.index}">${feature.properties.title}</div>`,
+          iconSize: [45, 20]
+        })
+      });
+    }
+  })
+  geojson.addTo(map);
+
+  // Handle click event to load images
+  const image_el = document.getElementById('listing-images');
+  document.addEventListener('click', async e => {
+    const listing_marker_el = e.target.closest('.listing-marker');
+    if(!listing_marker_el) return;
+    const feature = features[listing_marker_el.dataset.index];
+    if(!feature) return;
+    image_el.innerHTML = '';
+    let i = 0;
+    while(i < 26){ // weird filenaming convention here
+      let url = feature.properties.photo_url + String.fromCharCode(97 + i) + feature.properties.photo_url_ext;
+      img = await loadImage(url)
+      if(img === false) break;
+      image_el.appendChild(img);
+      i++;
+    }
+  });
+}
+
+// Wait for init
+document.addEventListener('DOMContentLoaded', init)
+
+</script>
+</head>
+<body>
+  <div>
+    <section>
+      <div id="map"></div>
+    </section>
+    <section>
+      <div id="listing-images"></div>
+    </section>
+  </div>
+</body>
+</html>
