@@ -31,6 +31,25 @@
 
 <script>
 
+let map;
+let features;
+let options = {
+  method: 'POST',
+  url: 'https://www.shorewest.com/vp/jsps/COMMON/maps_v6/sphinx3.jsp',
+  content_type: 'application/x-www-form-urlencoded',
+  params: {
+    SITE: 'SHOREW',
+    MAX_RESULT_COUNT: '300',
+    LL_RES_LAT_LOW: '43.02043660493958',
+    LL_RES_LAT_HIGH: '43.10597027000732',
+    LL_RES_LONG_LOW: '-87.97564499080183',
+    LL_RES_LONG_HIGH: '-87.86320678889753',
+    L_LISTINGSTATUS: 'Active|Delayed|ActiveWO|Active w/Contract|Pending|Offer-Show|Offer',
+    LC4_V46C: 'Two Family|Multi-Family',
+    sortCriteria: 'l_listing_date DESC',
+  }
+}
+
 const xhrURL = (options) => {
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
@@ -75,13 +94,10 @@ const loadImage = async url => {
   })
 }
 
-const getFeatures = async (options) => {
-
+const getFeatures = async () => {
     // Get data from Shorewest
     const response = await xhrURL(options)
-
     console.log(response.data.listings.length)
-
     // Normalize data in GeoJson format
     return await response.data.listings.map( (listing,i) => {
       const listing_details = JSON.parse(listing.LISTING_GENATTRIBS);
@@ -96,7 +112,7 @@ const getFeatures = async (options) => {
           title: `${parseInt(listing.L_NO_DAYS_ON_MARKET) < 2 ? '<span>&bull;</span>' : ''}${kFormatter(listing.L_LISTING_PRICE)}`,
           address_street: `${listing.L_LISTINGADDR1}`,
           address: `${listing.L_LISTINGADDR1}, ${listing.L_LISTINGCITY} ${listing.L_LISTINGSTATE} ${listing.L_LISTINGZIP}`,
-          price: `<b class="listing-price">${currencyFormat.format(listing.L_LISTING_PRICE)}</b> + ${currencyFormat.format(listing.L_LISTING_TAXES)} Tax`,
+          price: `<b class="listing-price">${currencyFormat.format(listing.L_LISTING_PRICE)}</b> + ${currencyFormat.format(listing.L_LISTING_TAXES)} Tax ${listing.LSALE_AMT_SALE_PRICE !== '0.0' ? ' / Sold for ' + currencyFormat.format(listing.LSALE_AMT_SALE_PRICE) : ''}`,
           about: `<span>${listing_details.type ? listing_details.type[0] : response.params.LC4_V46C }</span>${listing.LS_AMT_STRUCT_SQFT_ACT !== '0' ? '<span>' + listing.LS_AMT_STRUCT_SQFT_ACT + ' sqft</span>' : ''}<span>${listing.LS_TP_GARAGE && listing.LS_TP_GARAGE !== 'None' ? `<b>Garage</b>` : 'No Garage'}</span>`,
           on_market: `${listing.L_LISTINGSTATUS} / ${listing.L_NO_DAYS_ON_MARKET > 1 ? daysToYMD(listing.L_NO_DAYS_ON_MARKET) : 'New'}`,
           photo_url: `http://${listing.LP_PHOTO_URL}${listing.L_MLS_NUMBER}`,
@@ -108,32 +124,30 @@ const getFeatures = async (options) => {
 }
 
 const setFeatures = async (map,features) => {
-    // Set map features and tooltips
-    const geojson = await L.geoJson({ type: 'FeatureCollection', features: features }, {
-      onEachFeature: function (feature, layer) {
-        const image_el = document.querySelector('#listing-images');
-        const content = `
-          <div>${layer.feature.properties.address_street}</div>
-          <div>${layer.feature.properties.price}</div>
-          <div class="listing-property">${layer.feature.properties.about}</div>
-          <div>${layer.feature.properties.on_market} / <a href="${layer.feature.properties.sw_url}" target="_blank">Link</a></div>`;
-        layer.bindPopup(content);
-      },
-      pointToLayer: function(feature, ll) {
-        return L.marker(ll, {
-          icon: L.divIcon({
-            className: 'label',
-            html: `<div class="listing-marker" data-index="${feature.properties.index}">${feature.properties.title}</div>`,
-            iconSize: [45, 20]
-          })
-        });
-      }
-    })
-    geojson.addTo(map);
+  const geojson = await L.geoJson({ type: 'FeatureCollection', features: features }, {
+    // Set listing pop-up
+    onEachFeature: function (feature, layer) {
+      const image_el = document.querySelector('#listing-images');
+      const content = `
+        <div>${layer.feature.properties.address_street}</div>
+        <div>${layer.feature.properties.price}</div>
+        <div class="listing-property">${layer.feature.properties.about}</div>
+        <div>${layer.feature.properties.on_market} / <a href="${layer.feature.properties.sw_url}" target="_blank">Link</a></div>`;
+      layer.bindPopup(content);
+    },
+    // Set listing marker as a label w/ price
+    pointToLayer: function(feature, ll) {
+      return L.marker(ll, {
+        icon: L.divIcon({
+          className: 'label',
+          html: `<div class="listing-marker" data-index="${feature.properties.index}">${feature.properties.title}</div>`,
+          iconSize: [45, 20]
+        })
+      });
+    }
+  })
+  geojson.addTo(map);
 }
-
-let map;
-let features;
 
 const clickFeature = async (e) => {
   const image_el = document.getElementById('listing-images');
@@ -144,7 +158,8 @@ const clickFeature = async (e) => {
   const feature = features[listing_marker_el.dataset.index];
   if(!feature) return;
   let i = 0;
-  while(i < 26){ // weird filenaming convention here
+  // Get photos from alpahbetic naming convention
+  while(i < 26){
     let url = feature.properties.photo_url + String.fromCharCode(97 + i) + feature.properties.photo_url_ext;
     img = await loadImage(url)
     if(img === false) break;
@@ -156,53 +171,35 @@ const clickFeature = async (e) => {
   }
 }
 
-const initializeMap = async (options) => {
-
-
+const initializeMap = async () => {
   // Initialize mapbox v.3.3.1 because its faster than mapbox-gl since it renders tiles server-side
   L.mapbox.accessToken = 'pk.eyJ1IjoianBtMjM0NTYiLCJhIjoiY2tjOWt2MDF0MWxuZDJ5bHFhbWg2NW9heCJ9.Gst9WJa4y4My23BGr20ulg';
   map = L.mapbox.map('map');
   map.setView([43.070953,-87.882912], 15);
   map.addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/streets-v11', { tileLayer: {format: 'jpg70'} }));
-
-  features = await getFeatures(options);
+  features = await getFeatures();
   await setFeatures(map,features);
-
   // Handle click event to load images
   document.addEventListener('click', clickFeature);
-
 }
 
 const init = async (event) => {
-
-  let options = {
-    method: 'POST',
-    url: 'https://www.shorewest.com/vp/jsps/COMMON/maps_v6/sphinx3.jsp',
-    content_type: 'application/x-www-form-urlencoded',
-    params: {
-      SITE: 'SHOREW',
-      MAX_RESULT_COUNT: '300',
-      LL_RES_LAT_LOW: '43.02043660493958',
-      LL_RES_LAT_HIGH: '43.10597027000732',
-      LL_RES_LONG_LOW: '-87.97564499080183',
-      LL_RES_LONG_HIGH: '-87.86320678889753',
-      L_LISTINGSTATUS: 'Active|Delayed|ActiveWO|Active w/Contract|Pending|Offer-Show|Offer',
-      LC4_V46C: 'Two Family|Multi-Family',
-      sortCriteria: 'l_listing_date DESC',
-    }
-  }
-
-  document.getElementById('inputType').addEventListener('change', async event => {
-    options.params.LC4_V46C = event.target.options[event.target.selectedIndex].value;
+  const resetMap = async () => {
     await map.remove();
     features = [];
     document.removeEventListener('click', clickFeature);
     document.getElementById('listing-images').innerHTML = '';
-    await initializeMap(options);
+    await initializeMap();
+  }
+  document.getElementById('inputType').addEventListener('change', async event => {
+    options.params.LC4_V46C = event.target.options[event.target.selectedIndex].value;
+    resetMap();
   });
-
+  document.getElementById('inputStatus').addEventListener('change', async event => {
+    options.params.L_LISTINGSTATUS = event.target.options[event.target.selectedIndex].value;
+    resetMap();
+  });
   await initializeMap(options);
-
 }
 
 // Wait for init
@@ -217,6 +214,10 @@ document.addEventListener('DOMContentLoaded', init)
       <option value="Single Family Residential">Single Family</option>
       <option value="Condominium">Condominium</option>
       <option value="Business/Commercial">Commercial</option>
+    </select>
+    <select id="inputStatus">
+      <option value="Active|Delayed|ActiveWO|Active w/Contract|Pending|Offer-Show|Offer">Active</option>
+      <option value="Sold">Sold</option>
     </select>
   </nav>
   <div id="map"></div>
