@@ -9,10 +9,12 @@
   html, body { margin: 0; }
   body, textarea, input { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Ubuntu,sans-serif; color: #4f566b; }
   body { text-align: center; box-sizing: border-box; font-size: 14px; line-height: 1.625; -webkit-font-smoothing: antialiased }
-  body > div { position: fixed; display: flex; height: 100%; width: 100%; text-align: left; }
-  section:first-child { flex-basis: 700px; flex-shrink: 0;  }
-  section:last-child {flex-grow: 1; overflow-x: auto; position: relative; background: #000}
-  section:last-child img { max-width: 100%; }
+
+  nav { position: absolute; z-index: 2; left: 100px; top: 30px; }
+  #listing-images { width: 400px; position: fixed; right: 30px; top: 30px; bottom: 30px; overflow: auto;}
+  .hide { display: none; }
+
+  img { width: 100%; background: #fff; }
 
   #map { width: 100%; height: 100%; }
   .listing-marker { background: #fff; line-height: 11px; color: #000; font-weight: bold; text-align: center; display: inline-block; font-size: 10px; padding: 0 2px; border-radius: 3px; border: 1px solid #000}
@@ -73,10 +75,107 @@ const loadImage = async url => {
   })
 }
 
+const getFeatures = async (options) => {
+
+    // Get data from Shorewest
+    const response = await xhrURL(options)
+
+    console.log(response.data.listings.length)
+
+    // Normalize data in GeoJson format
+    return await response.data.listings.map( (listing,i) => {
+      const listing_details = JSON.parse(listing.LISTING_GENATTRIBS);
+      return {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [listing.LL_RES_LONG, listing.LL_RES_LAT]
+        },
+        properties: {
+          index: i,
+          title: `${parseInt(listing.L_NO_DAYS_ON_MARKET) < 2 ? '<span>&bull;</span>' : ''}${kFormatter(listing.L_LISTING_PRICE)}`,
+          address_street: `${listing.L_LISTINGADDR1}`,
+          address: `${listing.L_LISTINGADDR1}, ${listing.L_LISTINGCITY} ${listing.L_LISTINGSTATE} ${listing.L_LISTINGZIP}`,
+          price: `<b class="listing-price">${currencyFormat.format(listing.L_LISTING_PRICE)}</b> + ${currencyFormat.format(listing.L_LISTING_TAXES)} Tax`,
+          about: `<span>${listing_details.type ? listing_details.type[0] : response.params.LC4_V46C }</span>${listing.LS_AMT_STRUCT_SQFT_ACT !== '0' ? '<span>' + listing.LS_AMT_STRUCT_SQFT_ACT + ' sqft</span>' : ''}<span>${listing.LS_TP_GARAGE && listing.LS_TP_GARAGE !== 'None' ? `<b>Garage</b>` : 'No Garage'}</span>`,
+          on_market: `${listing.L_LISTINGSTATUS} / ${listing.L_NO_DAYS_ON_MARKET > 1 ? daysToYMD(listing.L_NO_DAYS_ON_MARKET) : 'New'}`,
+          photo_url: `http://${listing.LP_PHOTO_URL}${listing.L_MLS_NUMBER}`,
+          photo_url_ext: `x.jpg`,
+          sw_url: `https://www.shorewest.com/${listing.L_LISTINGSTATE}/${listing.L_NM_COUNTY}/${listing.L_LISTINGCITY}/${listing.LSEARCH_DETAILURL}/${listing.L_MLS_NUMBER}-${listing.L_CD_SOURCE}`,
+        },
+      }
+    });
+}
+
+const setFeatures = async (map,features) => {
+    // Set map features and tooltips
+    const geojson = await L.geoJson({ type: 'FeatureCollection', features: features }, {
+      onEachFeature: function (feature, layer) {
+        const image_el = document.querySelector('#listing-images');
+        const content = `
+          <div>${layer.feature.properties.address_street}</div>
+          <div>${layer.feature.properties.price}</div>
+          <div class="listing-property">${layer.feature.properties.about}</div>
+          <div>${layer.feature.properties.on_market} / <a href="${layer.feature.properties.sw_url}" target="_blank">Link</a></div>`;
+        layer.bindPopup(content);
+      },
+      pointToLayer: function(feature, ll) {
+        return L.marker(ll, {
+          icon: L.divIcon({
+            className: 'label',
+            html: `<div class="listing-marker" data-index="${feature.properties.index}">${feature.properties.title}</div>`,
+            iconSize: [45, 20]
+          })
+        });
+      }
+    })
+    geojson.addTo(map);
+}
+
+let map;
+let features;
+
+const clickFeature = async (e) => {
+  const image_el = document.getElementById('listing-images');
+  const listing_marker_el = e.target.closest('.listing-marker');
+  image_el.innerHTML = '';
+  image_el.classList.add('hide');
+  if(!listing_marker_el) return;
+  const feature = features[listing_marker_el.dataset.index];
+  if(!feature) return;
+  let i = 0;
+  while(i < 26){ // weird filenaming convention here
+    let url = feature.properties.photo_url + String.fromCharCode(97 + i) + feature.properties.photo_url_ext;
+    img = await loadImage(url)
+    if(img === false) break;
+    image_el.appendChild(img);
+    if(image_el.classList.contains('hide')){
+      image_el.classList.remove('hide');
+    }
+    i++;
+  }
+}
+
+const initializeMap = async (options) => {
+
+
+  // Initialize mapbox v.3.3.1 because its faster than mapbox-gl since it renders tiles server-side
+  L.mapbox.accessToken = 'pk.eyJ1IjoianBtMjM0NTYiLCJhIjoiY2tjOWt2MDF0MWxuZDJ5bHFhbWg2NW9heCJ9.Gst9WJa4y4My23BGr20ulg';
+  map = L.mapbox.map('map');
+  map.setView([43.070953,-87.882912], 15);
+  map.addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/streets-v11', { tileLayer: {format: 'jpg70'} }));
+
+  features = await getFeatures(options);
+  await setFeatures(map,features);
+
+  // Handle click event to load images
+  document.addEventListener('click', clickFeature);
+
+}
+
 const init = async (event) => {
 
-  // Get data from Shorewest - crazy fast
-  const response = await xhrURL({
+  let options = {
     method: 'POST',
     url: 'https://www.shorewest.com/vp/jsps/COMMON/maps_v6/sphinx3.jsp',
     content_type: 'application/x-www-form-urlencoded',
@@ -87,88 +186,23 @@ const init = async (event) => {
       LL_RES_LAT_HIGH: '43.10597027000732',
       LL_RES_LONG_LOW: '-87.97564499080183',
       LL_RES_LONG_HIGH: '-87.86320678889753',
-      //L_LISTINGSTATUS: 'Sold',
       L_LISTINGSTATUS: 'Active|Delayed|ActiveWO|Active w/Contract|Pending|Offer-Show|Offer',
       LC4_V46C: 'Two Family|Multi-Family',
-      //LC4_V46C: 'Business/Commercial',
-      //LC4_V46C: 'Single Family Residential',
       sortCriteria: 'l_listing_date DESC',
     }
-  })
+  }
 
-  console.log(response.data.listings.length)
-
-  // Normalize data in GeoJson format
-  const features = await response.data.listings.map( (listing,i) => {
-    const listing_details = JSON.parse(listing.LISTING_GENATTRIBS);
-    return {
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [listing.LL_RES_LONG, listing.LL_RES_LAT]
-      },
-      properties: {
-        index: i,
-        title: `${parseInt(listing.L_NO_DAYS_ON_MARKET) < 2 ? '<span>&bull;</span>' : ''}${kFormatter(listing.L_LISTING_PRICE)}`,
-        address_street: `${listing.L_LISTINGADDR1}`,
-        address: `${listing.L_LISTINGADDR1}, ${listing.L_LISTINGCITY} ${listing.L_LISTINGSTATE} ${listing.L_LISTINGZIP}`,
-        price: `<b class="listing-price">${currencyFormat.format(listing.L_LISTING_PRICE)}</b> + ${currencyFormat.format(listing.L_LISTING_TAXES)} Tax`,
-        about: `<span>${listing_details.type ? listing_details.type[0] : response.params.LC4_V46C }</span><span>${listing.LS_TP_GARAGE && listing.LS_TP_GARAGE !== 'None' ? `<b>` + listing.LS_TP_GARAGE + ` Garage</b>` : 'No Garage'}</span>`,
-        on_market: `${listing.L_NO_DAYS_ON_MARKET > 1 ? 'Active ' + daysToYMD(listing.L_NO_DAYS_ON_MARKET) : ''}`,
-        photo_url: `http://${listing.LP_PHOTO_URL}${listing.L_MLS_NUMBER}`,
-        photo_url_ext: `x.jpg`,
-        sw_url: `https://www.shorewest.com/${listing.L_LISTINGSTATE}/${listing.L_NM_COUNTY}/${listing.L_LISTINGCITY}/${listing.LSEARCH_DETAILURL}/${listing.L_MLS_NUMBER}-${listing.L_CD_SOURCE}`
-      },
-    }
+  document.getElementById('inputType').addEventListener('change', async event => {
+    options.params.LC4_V46C = event.target.options[event.target.selectedIndex].value;
+    await map.remove();
+    features = [];
+    document.removeEventListener('click', clickFeature);
+    document.getElementById('listing-images').innerHTML = '';
+    await initializeMap(options);
   });
 
-  // Initialize mapbox v.3.3.1 because its faster than mapbox-gl since it renders tiles server-side
-  L.mapbox.accessToken = 'pk.eyJ1IjoianBtMjM0NTYiLCJhIjoiY2tjOWt2MDF0MWxuZDJ5bHFhbWg2NW9heCJ9.Gst9WJa4y4My23BGr20ulg';
-  let map = L.mapbox.map('map');
-  map.setView([43.070953,-87.882912], 15);
-  map.addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/streets-v11', { tileLayer: {format: 'jpg70'} }));
+  await initializeMap(options);
 
-  // Set map features and tooltips
-  const geojson = await L.geoJson({ type: 'FeatureCollection', features: features }, {
-    onEachFeature: function (feature, layer) {
-      const image_el = document.querySelector('#listing-images');
-      const content = `
-        <div>${layer.feature.properties.address_street}</div>
-        <div>${layer.feature.properties.price}</div>
-        <div class="listing-property">${layer.feature.properties.about}</div>
-        <div>${layer.feature.properties.on_market}</div>
-        <div><a href="${layer.feature.properties.sw_url}" target="_blank">Link</a></div>`;
-      layer.bindPopup(content);
-    },
-    pointToLayer: function(feature, ll) {
-      return L.marker(ll, {
-        icon: L.divIcon({
-          className: 'label',
-          html: `<div class="listing-marker" data-index="${feature.properties.index}">${feature.properties.title}</div>`,
-          iconSize: [45, 20]
-        })
-      });
-    }
-  })
-  geojson.addTo(map);
-
-  // Handle click event to load images
-  const image_el = document.getElementById('listing-images');
-  document.addEventListener('click', async e => {
-    const listing_marker_el = e.target.closest('.listing-marker');
-    if(!listing_marker_el) return;
-    const feature = features[listing_marker_el.dataset.index];
-    if(!feature) return;
-    image_el.innerHTML = '';
-    let i = 0;
-    while(i < 26){ // weird filenaming convention here
-      let url = feature.properties.photo_url + String.fromCharCode(97 + i) + feature.properties.photo_url_ext;
-      img = await loadImage(url)
-      if(img === false) break;
-      image_el.appendChild(img);
-      i++;
-    }
-  });
 }
 
 // Wait for init
@@ -177,13 +211,15 @@ document.addEventListener('DOMContentLoaded', init)
 </script>
 </head>
 <body>
-  <div>
-    <section>
-      <div id="map"></div>
-    </section>
-    <section>
-      <div id="listing-images"></div>
-    </section>
-  </div>
+  <nav>
+    <select id="inputType">
+      <option value="Two Family|Multi-Family">Multi Family</option>
+      <option value="Single Family Residential">Single Family</option>
+      <option value="Condominium">Condominium</option>
+      <option value="Business/Commercial">Commercial</option>
+    </select>
+  </nav>
+  <div id="map"></div>
+  <div id="listing-images"></div>
 </body>
 </html>
