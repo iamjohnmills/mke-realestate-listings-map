@@ -126,14 +126,23 @@ const getFeatures = async () => {
 const setFeatures = async (map,features) => {
   const geojson = await L.geoJson({ type: 'FeatureCollection', features: features }, {
     // Set listing pop-up
-    onEachFeature: function (feature, layer) {
-      const image_el = document.querySelector('#listing-images');
-      const content = `
+    onEachFeature: async function (feature, layer) {
+      //const image_el = document.querySelector('#listing-images');
+      let url = layer.feature.properties.photo_url + String.fromCharCode(97 + 0) + layer.feature.properties.photo_url_ext;
+      img = await loadImage(url);
+      const content_el = document.createElement('div');
+      if(img){
+        img.classList.add('listing-image');
+        img.dataset.index = layer.feature.properties.index;
+        content_el.appendChild(img)
+      }
+
+      content_el.innerHTML = content_el.innerHTML + `
         <div>${layer.feature.properties.address_street}</div>
         <div>${layer.feature.properties.price}</div>
         <div class="listing-property">${layer.feature.properties.about}</div>
         <div>${layer.feature.properties.on_market} / <a href="${layer.feature.properties.sw_url}" target="_blank">Link</a></div>`;
-      layer.bindPopup(content);
+      layer.bindPopup(content_el);
     },
     // Set listing marker as a label w/ price
     pointToLayer: function(feature, ll) {
@@ -151,11 +160,11 @@ const setFeatures = async (map,features) => {
 
 const clickFeature = async (e) => {
   const image_el = document.getElementById('listing-images');
-  const listing_marker_el = e.target.closest('.listing-marker');
+  const listing_image_el = e.target.closest('.listing-image');
   image_el.innerHTML = '';
   image_el.classList.add('hide');
-  if(!listing_marker_el) return;
-  const feature = features[listing_marker_el.dataset.index];
+  if(!listing_image_el) return;
+  const feature = features[listing_image_el.dataset.index];
   if(!feature) return;
   let i = 0;
   // Get photos from alpahbetic naming convention
