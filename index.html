@@ -46,6 +46,8 @@ let options = {
     LL_RES_LONG_HIGH: '-87.82388225197793',
     L_LISTINGSTATUS: 'Active|Delayed',
     LC4_V46C: 'Two Family|Multi-Family',
+    //LSEARCH_AMT_SEARCH_PRICE_LOW:
+    //LSEARCH_AMT_SEARCH_PRICE_HIGH: 300000,
     sortCriteria: 'l_listing_date DESC',
   }
 }
@@ -97,7 +99,7 @@ const loadImage = async url => {
 const getFeatures = async () => {
     // Get data from Shorewest
     const response = await xhrURL(options)
-    console.log(response.data.listings.length)
+    //console.log(response.data.listings.length)
     // Normalize data in GeoJson format
     return await response.data.listings.map( (listing,i) => {
       const listing_details = JSON.parse(listing.LISTING_GENATTRIBS);
@@ -123,26 +125,24 @@ const getFeatures = async () => {
     });
 }
 
+const removeFeatures = async (map) => {
+  map.eachLayer((layer) => {
+    if (!!layer.toGeoJSON) map.removeLayer(layer);
+  });
+}
+
 const setFeatures = async (map,features) => {
+
+  await removeFeatures(map);
   const geojson = await L.geoJson({ type: 'FeatureCollection', features: features }, {
     // Set listing pop-up
     onEachFeature: async function (feature, layer) {
       //const image_el = document.querySelector('#listing-images');
       //let url = layer.feature.properties.photo_url + String.fromCharCode(97 + 0) + layer.feature.properties.photo_url_ext;
-
       const content_el = document.createElement('div');
       content_el.classList.add('listing-feature');
       content_el.dataset.image_url = layer.feature.properties.photo_url + String.fromCharCode(97 + 0) + layer.feature.properties.photo_url_ext;
       content_el.dataset.index = layer.feature.properties.index;
-      /*
-      //img = await loadImage(url);
-      if(img){
-        img.classList.add('listing-image');
-        img.dataset.index = layer.feature.properties.index;
-        content_el.appendChild(img)
-      }
-      */
-
       content_el.innerHTML = content_el.innerHTML + `
         <div>${layer.feature.properties.address_street}</div>
         <div>${layer.feature.properties.price}</div>
@@ -202,20 +202,37 @@ const clickImage = async (e) => {
   }
 }
 
+const mapMoveEnd = async (event) => {
+  const bounds = event.target.getBounds();
+  options.params.LL_RES_LAT_LOW = bounds._southWest.lat;
+  options.params.LL_RES_LAT_HIGH = bounds._northEast.lat;
+  options.params.LL_RES_LONG_LOW = bounds._southWest.lng;
+  options.params.LL_RES_LONG_HIGH = bounds._northEast.lng;
+  redrawMap();
+}
+
+const redrawMap = async () => {
+  features = await getFeatures();
+  await setFeatures(map,features);
+}
+
 const initializeMap = async () => {
   // Initialize mapbox v.3.3.1 because its faster than mapbox-gl since it renders tiles server-side
   L.mapbox.accessToken = 'pk.eyJ1IjoianBtMjM0NTYiLCJhIjoiY2tjOWt2MDF0MWxuZDJ5bHFhbWg2NW9heCJ9.Gst9WJa4y4My23BGr20ulg';
   map = L.mapbox.map('map');
   map.setView([43.070953,-87.882912], 15);
   map.addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/streets-v11', { tileLayer: {format: 'jpg70'} }));
+
   features = await getFeatures();
   await setFeatures(map,features);
   // Handle click event to load images
+  map.addEventListener('moveend', mapMoveEnd);
   document.addEventListener('click', clickFeature);
   document.addEventListener('click', clickImage);
 }
 
 const init = async (event) => {
+  /*
   const resetMap = async () => {
     await map.remove();
     features = [];
@@ -223,13 +240,16 @@ const init = async (event) => {
     document.getElementById('listing-images').innerHTML = '';
     await initializeMap();
   }
+  */
   document.getElementById('inputType').addEventListener('change', async event => {
     options.params.LC4_V46C = event.target.options[event.target.selectedIndex].value;
-    resetMap();
+    redrawMap();
+    //resetMap();
   });
   document.getElementById('inputStatus').addEventListener('change', async event => {
     options.params.L_LISTINGSTATUS = event.target.options[event.target.selectedIndex].value;
-    resetMap();
+    redrawMap();
+    //resetMap();
   });
   await initializeMap(options);
 }
@@ -252,6 +272,7 @@ document.addEventListener('DOMContentLoaded', init)
       <option value="Active|Delayed|ActiveWO|Active w/Contract|Pending|Offer-Show|Offer">Active+</option>
       <option value="Sold">Sold</option>
     </select>
+
   </nav>
   <div id="map"></div>
   <div id="listing-images"></div>
