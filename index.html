@@ -93,6 +93,9 @@ const loadImage = async url => {
       if(img.naturalWidth === 0) return resolve(false)
       return resolve(img);
     }
+    img.onerror = () => {
+      return resolve(false)
+    }    
   })
 }
 
