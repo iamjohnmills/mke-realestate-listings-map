@@ -47,7 +47,7 @@ let options = {
     L_LISTINGSTATUS: 'Active|Delayed',
     LC4_V46C: 'Two Family|Multi-Family',
     //LSEARCH_AMT_SEARCH_PRICE_LOW:
-    //LSEARCH_AMT_SEARCH_PRICE_HIGH: 300000,
+    LSEARCH_AMT_SEARCH_PRICE_HIGH: 180000,
     sortCriteria: 'l_listing_date DESC',
   }
 }
@@ -241,6 +241,12 @@ const init = async (event) => {
     await initializeMap();
   }
   */
+  document.getElementById('inputPrice').addEventListener('change', async event => {
+    options.params.LSEARCH_AMT_SEARCH_PRICE_HIGH = event.target.options[event.target.selectedIndex].value;
+    redrawMap();
+    //resetMap();
+  });
+
   document.getElementById('inputType').addEventListener('change', async event => {
     options.params.LC4_V46C = event.target.options[event.target.selectedIndex].value;
     redrawMap();
@@ -272,7 +278,12 @@ document.addEventListener('DOMContentLoaded', init)
       <option value="Active|Delayed|ActiveWO|Active w/Contract|Pending|Offer-Show|Offer">Active+</option>
       <option value="Sold">Sold</option>
     </select>
-
+    <select id="inputPrice">
+      <option value="70000">70K</option>
+      <option value="180000" selected=true>180K</option>
+      <option value="250000">250K</option>
+      <option value="All">All</option>
+    </select>
   </nav>
   <div id="map"></div>
   <div id="listing-images"></div>
