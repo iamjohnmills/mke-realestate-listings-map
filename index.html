@@ -117,7 +117,7 @@ const getFeatures = async () => {
           price: `<b class="listing-price">${currencyFormat.format(listing.L_LISTING_PRICE)}</b> + ${currencyFormat.format(listing.L_LISTING_TAXES)} Tax ${listing.LSALE_AMT_SALE_PRICE !== '0.0' ? ' / Sold for ' + currencyFormat.format(listing.LSALE_AMT_SALE_PRICE) : ''}`,
           about: `<span>${listing_details.type ? listing_details.type[0] : response.params.LC4_V46C }</span>${listing.LS_AMT_STRUCT_SQFT_ACT !== '0' ? '<span>' + listing.LS_AMT_STRUCT_SQFT_ACT + ' sqft</span>' : ''}<span>${listing.LS_TP_GARAGE && listing.LS_TP_GARAGE !== 'None' ? `<b>Garage</b>` : 'No Garage'}</span>`,
           on_market: `${listing.L_LISTINGSTATUS} / ${listing.L_NO_DAYS_ON_MARKET > 1 ? daysToYMD(listing.L_NO_DAYS_ON_MARKET) : 'New'}`,
-          photo_url: `http://${listing.LP_PHOTO_URL}${listing.L_MLS_NUMBER}`,
+          photo_url: `https://${listing.LP_PHOTO_URL}${listing.L_MLS_NUMBER}`,
           photo_url_ext: `x.jpg`,
           sw_url: `https://www.shorewest.com/${listing.L_LISTINGSTATE}/${listing.L_NM_COUNTY}/${listing.L_LISTINGCITY}/${listing.LSEARCH_DETAILURL}/${listing.L_MLS_NUMBER}-${listing.L_CD_SOURCE}`,
         },
