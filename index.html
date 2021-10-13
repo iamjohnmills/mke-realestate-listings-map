@@ -171,11 +171,17 @@ const clickFeature = async (e) => {
     const url = feature.properties.photo_url + String.fromCharCode(97 + 0) + feature.properties.photo_url_ext;
     const feature_el = document.querySelector('.listing-feature[data-index="'+listing_el.dataset.index+'"]');
     if(feature_el.querySelector('.listing-image')) return;
-    img = await loadImage(url);
-    if(img){
-      img.classList.add('listing-image');
-      img.dataset.index = listing_el.dataset.index;
-      feature_el.prepend(img)
+    let load_attempts = 0;
+    let image_loaded = false;
+    while(load_attempts < 3 && !image_loaded){
+      img = await loadImage(url);
+      if(img){
+        img.classList.add('listing-image');
+        img.dataset.index = listing_el.dataset.index;
+        feature_el.prepend(img);
+        image_loaded = true;
+      }
+      load_attempts++;
     }
   }
 }
