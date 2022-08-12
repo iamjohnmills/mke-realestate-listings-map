@@ -48,8 +48,8 @@ let options = {
     LL_RES_LONG_HIGH: '-87.82388225197793',
     L_LISTINGSTATUS: 'Active|Delayed',
     LC4_V46C: 'Two Family|Multi-Family',
-    //LSEARCH_AMT_SEARCH_PRICE_LOW:
-    LSEARCH_AMT_SEARCH_PRICE_HIGH: 180000,
+    LSEARCH_AMT_SEARCH_PRICE_LOW: 0,
+    LSEARCH_AMT_SEARCH_PRICE_HIGH: 350000,
     sortCriteria: 'l_listing_date DESC',
   }
 }
@@ -106,8 +106,17 @@ const getFeatures = async () => {
     const response = await xhrURL(options)
     //console.log(response.data.listings.length)
     // Normalize data in GeoJson format
-    return await response.data.listings.map( (listing,i) => {
+
+    //"-87.903625" 0.000001
+
+    return await response.data.listings.map( (listing,i,listings) => {
       const listing_details = JSON.parse(listing.LISTING_GENATTRIBS);
+      // const matches = listings.filter(match => match.L_CD_MLS !== listing.L_CD_MLS && match.LL_RES_LONG === listing.LL_RES_LONG && match.LL_RES_LAT === listing.LL_RES_LAT);
+      // const lat = matches ? parseFloat(listing.LL_RES_LAT) + 0.0001 : listing.LL_RES_LAT;
+      // const lng = matches ? parseFloat(listing.LL_RES_LONG) + 0.0001 : listing.LL_RES_LONG;
+      // console.log(listing.LL_RES_LAT,listing.LL_RES_LONG);
+      // console.log(lat,lng);
+      // console.log(matches)
       return {
         type: 'Feature',
         geometry: {
@@ -173,6 +182,7 @@ const clickFeature = async (e) => {
   const listing_el = e.target.closest('.listing-marker');
   if(listing_el){
     const feature = features[listing_el.dataset.index];
+    console.log(feature)
     const url = feature.properties.photo_url + String.fromCharCode(97 + 0) + feature.properties.photo_url_ext;
     const feature_el = document.querySelector('.listing-feature[data-index="'+listing_el.dataset.index+'"]');
     if(feature_el.querySelector('.listing-image')) return;
@@ -242,26 +252,47 @@ const initializeMap = async () => {
   document.addEventListener('click', clickImage);
 }
 
+const setPriceMax = (select) => {
+  const val = select.options[select.selectedIndex].value;
+  options.params.LSEARCH_AMT_SEARCH_PRICE_HIGH = val;
+}
+
+const setPriceMin = (select) => {
+  const val = select.options[select.selectedIndex].value;
+  options.params.LSEARCH_AMT_SEARCH_PRICE_LOW = val;
+}
+
+const setType = (select) => {
+  options.params.LC4_V46C = select.options[select.selectedIndex].value;
+}
+
 const init = async (event) => {
-  /*
-  const resetMap = async () => {
-    await map.remove();
-    features = [];
-    document.removeEventListener('click', clickFeature);
-    document.getElementById('listing-images').innerHTML = '';
-    await initializeMap();
-  }
-  */
-  document.getElementById('inputPrice').addEventListener('change', async event => {
-    options.params.LSEARCH_AMT_SEARCH_PRICE_HIGH = event.target.options[event.target.selectedIndex].value;
+  setPriceMax(document.getElementById('inputPriceMax'));
+  setPriceMin(document.getElementById('inputPriceMin'));
+  setType(document.getElementById('inputType'));
+
+  // document.getElementById('inputPriceMinCustom').addEventListener('change', async event => {
+  //   options.params.LSEARCH_AMT_SEARCH_PRICE_LOW = event.target.value;
+  //   redrawMap();
+  // });
+  // document.getElementById('inputPriceMaxCustom').addEventListener('change', async event => {
+  //   options.params.LSEARCH_AMT_SEARCH_PRICE_HIGH = event.target.value;
+  //   redrawMap();
+  // });
+  //
+  document.getElementById('inputPriceMin').addEventListener('change', async event => {
+    setPriceMin(event.target);
     redrawMap();
-    //resetMap();
+  });
+
+  document.getElementById('inputPriceMax').addEventListener('change', async event => {
+    setPriceMax(event.target);
+    redrawMap();
   });
 
   document.getElementById('inputType').addEventListener('change', async event => {
-    options.params.LC4_V46C = event.target.options[event.target.selectedIndex].value;
+    setType(event.target);
     redrawMap();
-    //resetMap();
   });
   document.getElementById('inputStatus').addEventListener('change', async event => {
     options.params.L_LISTINGSTATUS = event.target.options[event.target.selectedIndex].value;
@@ -289,10 +320,19 @@ document.addEventListener('DOMContentLoaded', init)
       <option value="Active|Delayed|ActiveWO|Active w/Contract|Pending|Offer-Show|Offer">Active+</option>
       <option value="Sold">Sold</option>
     </select>
-    <select id="inputPrice">
-      <option value="70000">70K</option>
-      <option value="180000" selected=true>180K</option>
+    <!-- <input id="inputPriceMinCustom" type="number" step="10000" value="250000" />
+    <input id="inputPriceMaxCustom" type="number" step="10000" value="350000" /> -->
+    <select id="inputPriceMin">
+      <option value="0">0</option>
+      <option value="180000">180K</option>
       <option value="250000">250K</option>
+      <option value="350000" selected=true>350K</option>
+    </select>
+    <select id="inputPriceMax">
+      <option value="180000">80K</option>
+      <option value="250000">250k</option>
+      <option value="350000">350k</option>
+      <option value="450000" selected=true>450K</option>
       <option value="">All</option>
     </select>
   </nav>
