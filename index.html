@@ -125,7 +125,7 @@ const getFeatures = async () => {
         },
         properties: {
           index: i,
-          title: `${parseInt(listing.L_NO_DAYS_ON_MARKET) < 2 ? '<span>&bull;</span>' : ''}${kFormatter(listing.L_LISTING_PRICE)}`,
+          title: `${parseInt(listing.L_NO_DAYS_ON_MARKET) < 30 ? '<span>&bull;</span>' : ''}${kFormatter(listing.L_LISTING_PRICE)}`,
           address_street: `${listing.L_LISTINGADDR1}`,
           address: `${listing.L_LISTINGADDR1}, ${listing.L_LISTINGCITY} ${listing.L_LISTINGSTATE} ${listing.L_LISTINGZIP}`,
           price: `<b class="listing-price">${currencyFormat.format(listing.L_LISTING_PRICE)}</b> + ${currencyFormat.format(listing.L_LISTING_TAXES)} Tax ${listing.LSALE_AMT_SALE_PRICE !== '0.0' ? ' / Sold for ' + currencyFormat.format(listing.LSALE_AMT_SALE_PRICE) : ''}`,
@@ -179,10 +179,12 @@ const setFeatures = async (map,features) => {
 }
 
 const clickFeature = async (e) => {
+  const leaflet_marker_el = e.target.closest('.leaflet-marker-icon');
   const listing_el = e.target.closest('.listing-marker');
   if(listing_el){
+    leaflet_marker_el.style.zIndex = parseInt(leaflet_marker_el.style.zIndex) - 1;
+    // console.log(listing_el.style.zIndex)
     const feature = features[listing_el.dataset.index];
-    console.log(feature)
     const url = feature.properties.photo_url + String.fromCharCode(97 + 0) + feature.properties.photo_url_ext;
     const feature_el = document.querySelector('.listing-feature[data-index="'+listing_el.dataset.index+'"]');
     if(feature_el.querySelector('.listing-image')) return;
@@ -271,15 +273,6 @@ const init = async (event) => {
   setPriceMin(document.getElementById('inputPriceMin'));
   setType(document.getElementById('inputType'));
 
-  // document.getElementById('inputPriceMinCustom').addEventListener('change', async event => {
-  //   options.params.LSEARCH_AMT_SEARCH_PRICE_LOW = event.target.value;
-  //   redrawMap();
-  // });
-  // document.getElementById('inputPriceMaxCustom').addEventListener('change', async event => {
-  //   options.params.LSEARCH_AMT_SEARCH_PRICE_HIGH = event.target.value;
-  //   redrawMap();
-  // });
-  //
   document.getElementById('inputPriceMin').addEventListener('change', async event => {
     setPriceMin(event.target);
     redrawMap();
@@ -316,24 +309,24 @@ document.addEventListener('DOMContentLoaded', init)
       <option value="Business/Commercial">Commercial</option>
     </select>
     <select id="inputStatus">
-      <option value="Active|Delayed">Active|Delayed</option>
-      <option value="Active|Delayed|ActiveWO|Active w/Contract|Pending|Offer-Show|Offer">Active+</option>
-      <option value="Sold">Sold</option>
+      <option value="Active|Delayed">Active</option>
+      <option value="ActiveWO|Active w/Contract|Pending|Offer-Show|Offer">Contingent</option>
+      <!-- <option value="Sold">Sold</option> -->
     </select>
     <!-- <input id="inputPriceMinCustom" type="number" step="10000" value="250000" />
     <input id="inputPriceMaxCustom" type="number" step="10000" value="350000" /> -->
     <select id="inputPriceMin">
-      <option value="0">0</option>
+      <option value="0" selected>0</option>
       <option value="180000">180K</option>
       <option value="250000">250K</option>
-      <option value="350000" selected=true>350K</option>
+      <option value="350000">350K</option>
     </select>
     <select id="inputPriceMax">
       <option value="180000">80K</option>
       <option value="250000">250k</option>
       <option value="350000">350k</option>
-      <option value="450000" selected=true>450K</option>
-      <option value="">All</option>
+      <option value="450000">450K</option>
+      <option value="" selected>All</option>
     </select>
   </nav>
   <div id="map"></div>
