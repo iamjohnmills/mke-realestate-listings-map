@@ -1,5 +1,3 @@
-# About
+# Milwaukee Real-estate Map
 
-Gets data from Shorewest to display local listings on map. Its fast and easy to use.
-
-Default settings search for Two and Multi Family homes
+Interactive map-view of Milwaukee real estate listings. Made with Mapbox + JS.
