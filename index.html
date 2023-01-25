@@ -62,6 +62,7 @@
       this.map = null;
       this.features = [];
       this.active_listing = null;
+      this.loading_marker = false;
       this.params = { SITE: 'SHOREW', MAX_RESULT_COUNT: '1000', LL_RES_LAT_LOW: '43.02194164700425', LL_RES_LAT_HIGH: '43.11612005286264', LL_RES_LONG_LOW: '-87.91606441140176', LL_RES_LONG_HIGH: '-87.82388225197793', L_LISTINGSTATUS: 'Active|Delayed', LC4_V46C: 'Two Family|Multi-Family', LSEARCH_AMT_SEARCH_PRICE_LOW: 0, LSEARCH_AMT_SEARCH_PRICE_HIGH: '', sortCriteria: 'l_listing_date DESC', }
     }
     async init(){
@@ -127,6 +128,8 @@
       if(marker_el) this.handleMarkerClick(marker_el);
     }
     async handleMarkerClick(el){
+      if(this.loading_marker) return;
+      this.loading_marker = true;
       this.els.menu.classList.remove('reveal','fullheight','images-ready');
       this.active_listing = this.features[el.querySelector('span').dataset.index].properties.listing;
       const marker_active_el = document.querySelector('.listing-marker.active');
@@ -152,6 +155,7 @@
         this.els.notification_image.append(img_el);
       }
       this.els.menu.classList.add('reveal');
+      this.loading_marker = false;
     }
     async handleClickLoadImages(event){
       if(this.els.menu.classList.contains('images-ready')) return this.els.menu.classList.add('fullheight');
