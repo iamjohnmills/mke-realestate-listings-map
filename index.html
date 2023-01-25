@@ -1,337 +1,194 @@
 <html>
 <head>
-<meta name="viewport" content="initial-scale=1.0, user-scalable=no">
-<meta charset="utf-8">
-
-<title>Real Estate Listings</title>
-<link rel="shortcut icon" href="building.png" /> <!-- Thanks for the favicon Yusuke Kamiyamane-->
-<script src='https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.js'></script>
-<link href='https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.css' rel='stylesheet' />
-
-<style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Milwaukee Real Estate Listings</title>
+  <link rel="shortcut icon" href="building.png" /> <!-- Icon credit: Yusuke Kamiyamane-->
+  <script src="https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.js"></script>
+  <link href="https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.css" rel="stylesheet" />
+  <script src="utilities.js"></script>
+  <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; }
-  body, textarea, input { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Ubuntu,sans-serif; color: #4f566b; }
-  body { text-align: center; box-sizing: border-box; font-size: 14px; line-height: 1.625; -webkit-font-smoothing: antialiased }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body, select, .leaflet-marker-icon { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Ubuntu,sans-serif; }
+  #root { width: 100%; height: 100%; overflow: hidden; position: relative;  }
+  .text-14 { font-size: 14px; }
+  .text-12 { font-size: 12px; }
+  .lh-18 { line-height: 18px; }
+  .lh-14 { line-height: 14px; }
+  .leaflet-marker-icon { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Ubuntu,sans-serif; background: linear-gradient(0deg, rgba(230,230,230,1) 0%, rgba(255,255,255,1) 100%); line-height: 14px; color: #000; font-weight: bold; text-align: center; display: inline-block; font-size: 11px; padding: 0 2px; border-radius: 3px; box-shadow: 0 0 1px 1px rgba(0,0,0,0.2); }
+  .leaflet-marker-icon.active { background: linear-gradient(0deg, rgba(26,26,26,1) 0%, rgba(64,64,64,1) 100%); color: #fff; z-index: 9999 !important; box-shadow: unset; }
+  .leaflet-marker-icon.new:before { content: '•'; color: orange; line-height: 0; position: relative; top: 3px; font-size: 22px; font-style: normal;}
+  .leaflet-control-zoom { display: flex; flex-direction: row-reverse; border-radius: 4px; box-shadow: 0 0 1px 1px rgba(0,0,0,0.2); border: unset !important; }
+  .leaflet-bar .leaflet-control-zoom-in,
+  .leaflet-bar .leaflet-control-zoom-out { width: 35px; height: 26px; border-left: 1px solid rgba(0,0,0,.1); text-indent: unset; display: flex; align-items: center; justify-content: center; color: #000; font-size: 18px; font-weight: bold; background: linear-gradient(0deg, rgba(230,230,230,1) 0%, rgba(255,255,255,1) 100%); background-position: unset;  }
+  .leaflet-bar .leaflet-control-zoom-in { border-top-left-radius: 4px; border-top-right-radius: 4px; }
+  .leaflet-bar .leaflet-control-zoom-out { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+  .map { width: 100%; height: 100%; }
+  .menu { z-index: 9999; position: absolute; width: 100%; bottom: 0px;}
+  @media screen and (min-width: 700px) { .menu { top: 0; right: 0; bottom: unset; width: 450px; } }
+  @media screen and (max-width: 699px) { .menu.fullheight { top: 35px; } }
+  .filters { user-select: none; flex-wrap: wrap; position: relative; z-index: 1; width: 100%; padding: 10px 5px 0 5px; display: flex; }
+    .filters select:first-child { flex-basis: 160px; flex-grow: 0; flex-shrink: 0; }
+    .filters select { flex-basis: calc((100% - 200px) / 3); width: calc((100% - 200px) / 3); margin: 0 5px; font-size: 13px; appearance: none; border: 0; outline: 0; height: 26px; padding: 0 20px 0 10px; border-radius: 4px; box-shadow: 0 0 1px 1px rgba(0,0,0,0.2); cursor: pointer; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' style='enable-background:new 0 0 512 512' xml:space='preserve'%3E%3Cpath d='M508.667 125.707a10.623 10.623 0 0 0-15.04 0L255.76 363.573 18 125.707c-4.267-4.053-10.987-3.947-15.04.213a10.763 10.763 0 0 0 0 14.827L248.293 386.08a10.623 10.623 0 0 0 15.04 0l245.333-245.333c4.161-4.054 4.161-10.88.001-15.04z'/%3E%3C/svg%3E") no-repeat right 8px center / 12px, linear-gradient(0deg, rgba(230,230,230,1) 0%, rgba(255,255,255,1) 100%); }
+  .menu.reveal.fullheight { bottom: 0; }
+  .details { display: none; padding: 10px; }
+  .menu.reveal .details { display: block;}
+    .notification { height: 85px; position: relative; z-index: 1; display: flex; background: #fff; border-radius: 4px; box-shadow: 0 0 1px 1px rgba(0,0,0,0.2);  }
+    .notification .close { position: absolute; right: 0; top: 0; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 10px; cursor: pointer;}
+    .notification .close svg { width: 100%; color: #555; }
+    .notification .close:hover svg { color: #000; }
+    .notification .image { color: #ccc; background-repeat: no-repeat; background-size: 40px; background-position: center; background-color: #ddd; position: relative; border-top-left-radius: 4px;  border-bottom-left-radius: 4px; display: flex; flex-basis: 150px; height: 100%; flex-grow: 0; flex-shrink: 0; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' xml:space='preserve'%3E%3Cpath fill='%23aaa' d='m160.235 276.571-144.5-159.983C6.352 122.166.001 132.299.001 144.002v256.005c0 17.672 14.328 31.994 32 31.994h268.625l-58.867-65.17c-44.766-6.676-79.352-44.169-81.524-90.26zm319.766-164.57h-112l-23.156-46.313a32.002 32.002 0 0 0-28.625-17.687H195.782a32.003 32.003 0 0 0-28.625 17.688l-10.836 21.672-68.539-76.767C75.985-2.539 55.735-3.61 42.594 8.211c-13.141 11.828-14.203 32.063-2.375 45.196l399.992 448c6.313 7.024 15.031 10.594 23.797 10.594a31.877 31.877 0 0 0 21.391-8.211c13.141-11.828 14.203-32.067 2.375-45.2L464.04 432h15.961c17.672 0 32-14.321 32-31.994V144.002c0-17.672-14.329-32.001-32-32.001zM237.196 177.94c6.086-1.219 12.359-1.938 18.805-1.938 53.016 0 96 42.981 96 96.002 0 10.223-1.758 19.996-4.727 29.227L237.196 177.94z'/%3E%3C/svg%3E"); }
+    .notification .image span { cursor: pointer; z-index: 1; position: absolute; bottom: 5px; left: 5px; right: 5px; text-align: center; mix-blend-mode: hard-light; background: linear-gradient(0deg, rgba(26,26,26,1) 0%, rgba(64,64,64,1) 100%); display: block; border-radius: 3px; font-size: 9px; text-transform: uppercase; font-weight: bold; color: #fff; padding: 4px 6px; }
+    .notification .image img { width: 100%; border-top-left-radius: 4px; border-bottom-left-radius: 4px; display: block; object-fit: cover; }
+    .notification .info { background: linear-gradient(0deg, rgba(230,230,230,1) 0%, rgba(255,255,255,1) 100%); border-top-right-radius: 4px;  border-bottom-right-radius: 4px; border-left: 1px solid #fff; line-height: 1.4; display: flex; flex-direction: column; justify-content: center; flex-grow: 1; flex-shrink: 1; font-size: 14px; padding: 10px 15px; }
+    .notification .info a { font-weight: bold; text-decoration: none; color: #000; }
+    .notification .info a:hover { text-decoration: underline; }
+    .notification .info > div { position: relative; z-index: 1; }
+    .menu.fullheight .images { display: block; }
+    .images { display: none; width: 430px; border-radius: 4px; top: 141px; position: absolute; bottom: 10px; overflow-y: auto; }
+    @media screen and (max-width: 699px) { .images { right: 10px; left: 10px; width: auto; } }
+    .images::-webkit-scrollbar { display: none; }
+    .images img { width: 100%; display: block; border-radius: 4px; margin-bottom: 10px; }
+    .images img:last-child { margin: 0; }
+  </style>
 
-  nav { position: absolute; z-index: 2; left: 100px; top: 30px; }
-  #listing-images { width: 400px; position: fixed; right: 30px; top: 30px; bottom: 30px; overflow: auto;}
-  .hide { display: none; }
-
-  img { width: 100%; background: #fff; }
-
-  #map { width: 100%; height: 100%; }
-  .listing-marker { background: #fff; line-height: 11px; color: #000; font-weight: bold; text-align: center; display: inline-block; font-size: 10px; padding: 0 2px; border-radius: 3px; border: 1px solid #000}
-  .listing-marker > span { color: orange; line-height: 0; position: relative; top: 6px; font-size: 26px; }
-  .listing-property > span:after { content: '/'; padding: 0 5px; }
-  .listing-property > span:last-child:after { content: ''; padding: 0; }
-  .listing-price { font-size: 16px; color: #000; }
-
-  .leaflet-popup { margin-bottom: 22px; }
-  .leaflet-popup-content-wrapper { border: 1px solid #000; }
-  .leaflet-popup-content { padding: 10px; }
-  .leaflet-popup-tip-container, .leaflet-popup-close-button { display: none; }
-</style>
-
-<script>
-
-let map;
-let features;
-let options = {
-  method: 'POST',
-  url: 'https://www.shorewest.com/vp/jsps/COMMON/maps_v6/sphinx3.jsp',
-  content_type: 'application/x-www-form-urlencoded',
-  params: {
-    SITE: 'SHOREW',
-    MAX_RESULT_COUNT: '1000',
-    LL_RES_LAT_LOW: '43.02194164700425',
-    LL_RES_LAT_HIGH: '43.11612005286264',
-    LL_RES_LONG_LOW: '-87.91606441140176',
-    LL_RES_LONG_HIGH: '-87.82388225197793',
-    L_LISTINGSTATUS: 'Active|Delayed',
-    LC4_V46C: 'Two Family|Multi-Family',
-    LSEARCH_AMT_SEARCH_PRICE_LOW: 0,
-    LSEARCH_AMT_SEARCH_PRICE_HIGH: 350000,
-    sortCriteria: 'l_listing_date DESC',
-  }
-}
-
-const xhrURL = (options) => {
-  return new Promise(function(resolve, reject) {
-    var xhr = new XMLHttpRequest();
-    xhr.addEventListener('load', () => resolve({ success: true, data: JSON.parse(xhr.responseText), params: options.params }));
-    xhr.addEventListener('error', () => resolve({ success: false, message: 'Error getting the URL ' + options.url }));
-    xhr.open(options.method, options.url);
-    xhr.setRequestHeader('Content-type', options.content_type);
-    const params = new URLSearchParams(options.params).toString();
-    xhr.send(params);
-  });
-}
-
-const currencyFormat = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
-const kFormatter = num => {
-  return Math.abs(num) > 999 ? Math.sign(num)*((Math.abs(num)/1000).toFixed(1)) + 'k' : Math.sign(num)*Math.abs(num)
-}
-
-const daysToYMD = x => {
-  const y = 365;
-  const y2 = 31;
-  const remainder = x % y;
-  const casio = remainder % y2;
-  const year = (x - remainder) / y;
-  const month = (remainder - casio) / y2;
-  let result = `${(year ? year  + ' Years ': '')}${(month ? month + ' Months ' : '')}${(casio ? casio + ' Days ' : '')}`;
-  return result;
-}
-
-const loadImage = async url => {
-  return new Promise((resolve,reject) => {
-    let img = new Image();
-    img.src = url;
-    img.onload = () => {
-      if(img.naturalWidth === 0) return resolve(false)
-      return resolve(img);
+  <script>
+  class App {
+    constructor(){
+      document.addEventListener('DOMContentLoaded',this.init.bind(this));
+      document.addEventListener('click', this.handleMapClick.bind(this) );
+      this.els = {};
+      this.map = null;
+      this.features = [];
+      this.active_listing = null;
+      this.params = { SITE: 'SHOREW', MAX_RESULT_COUNT: '1000', LL_RES_LAT_LOW: '43.02194164700425', LL_RES_LAT_HIGH: '43.11612005286264', LL_RES_LONG_LOW: '-87.91606441140176', LL_RES_LONG_HIGH: '-87.82388225197793', L_LISTINGSTATUS: 'Active|Delayed', LC4_V46C: 'Two Family|Multi-Family', LSEARCH_AMT_SEARCH_PRICE_LOW: 0, LSEARCH_AMT_SEARCH_PRICE_HIGH: '', sortCriteria: 'l_listing_date DESC', }
     }
-    img.onerror = () => {
-      return resolve(false)
+    async init(){
+      this.root = document.getElementById('root');
+      this.root.innerHTML = ``;
+      this.els.map = await createNode({ root: this.root, tag: 'div', className: 'map', attributes: { id: 'map' }});
+      this.els.menu = await createNode({ root: this.root, tag: 'div', className: 'menu' });
+      this.els.filters = await createNode({ root: this.els.menu, tag: 'div', className: 'filters' });
+      this.els.filter_type = await createNode({ root: this.els.filters, tag: 'select', event_listeners: { change: this.handleFilterChange.bind(this) }, innerHTML: `<option value="Two Family|Multi-Family">Multi Family</option><option value="Single Family Residential">Single Family</option><option value="Condominium">Condominium</option><option value="Business/Commercial">Commercial</option><option value="Vacant Land">Vacant Land</option>` });
+      this.els.filter_status = await createNode({ root: this.els.filters, tag: 'select', event_listeners: { change: this.handleFilterChange.bind(this) }, innerHTML: `<option value="Active|Delayed">Active</option><option value="ActiveWO|Active w/Contract|Pending|Offer-Show|Offer">Contingent</option><option value="Sold">Sold</option>` });
+      this.els.filter_min = await createNode({ root: this.els.filters, tag: 'select', event_listeners: { change: this.handleFilterChange.bind(this) }, innerHTML: `<option value="0" selected>No Min</option><option value="180000">180K</option><option value="250000">250K</option><option value="350000">350K</option>` });
+      this.els.filter_max = await createNode({ root: this.els.filters, tag: 'select', event_listeners: { change: this.handleFilterChange.bind(this) }, innerHTML: `<option value="180000">80K</option><option value="250000">250k</option><option value="350000">350k</option><option value="450000">450K</option><option value="" selected>No Max</option>` });
+      this.els.details = await createNode({ root: this.els.menu, tag: 'div', className: 'details' });
+      this.els.notification = await createNode({ root: this.els.details, tag: 'div', className: 'notification'  });
+      this.els.notification_close = await createNode({ root: this.els.notification, tag: 'span', className: 'close', event_listeners: { click: this.handleClickNotificationClose.bind(this) }, innerHTML: `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" stroke="currentColor" stroke-width="2" d="m3 3 18 18M3 21 21 3"/></svg>` });
+      this.els.notification_image = await createNode({ root: this.els.notification, tag: 'div', className: 'image' });
+      this.els.notification_info = await createNode({ root: this.els.notification, tag: 'div', className: 'info' });
+      this.els.details_images = await createNode({ root: this.els.details, tag: 'div', className: 'images' });
+      this.initializeMap();
     }
-  })
-}
-
-const getFeatures = async () => {
-    // Get data from Shorewest
-    const response = await xhrURL(options)
-    //console.log(response.data.listings.length)
-    // Normalize data in GeoJson format
-
-    //"-87.903625" 0.000001
-
-    return await response.data.listings.map( (listing,i,listings) => {
-      const listing_details = JSON.parse(listing.LISTING_GENATTRIBS);
-      // const matches = listings.filter(match => match.L_CD_MLS !== listing.L_CD_MLS && match.LL_RES_LONG === listing.LL_RES_LONG && match.LL_RES_LAT === listing.LL_RES_LAT);
-      // const lat = matches ? parseFloat(listing.LL_RES_LAT) + 0.0001 : listing.LL_RES_LAT;
-      // const lng = matches ? parseFloat(listing.LL_RES_LONG) + 0.0001 : listing.LL_RES_LONG;
-      // console.log(listing.LL_RES_LAT,listing.LL_RES_LONG);
-      // console.log(lat,lng);
-      // console.log(matches)
-      return {
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [listing.LL_RES_LONG, listing.LL_RES_LAT]
-        },
-        properties: {
-          index: i,
-          title: `${parseInt(listing.L_NO_DAYS_ON_MARKET) < 30 ? '<span>&bull;</span>' : ''}${kFormatter(listing.L_LISTING_PRICE)}`,
-          address_street: `${listing.L_LISTINGADDR1}`,
-          address: `${listing.L_LISTINGADDR1}, ${listing.L_LISTINGCITY} ${listing.L_LISTINGSTATE} ${listing.L_LISTINGZIP}`,
-          price: `<b class="listing-price">${currencyFormat.format(listing.L_LISTING_PRICE)}</b> + ${currencyFormat.format(listing.L_LISTING_TAXES)} Tax ${listing.LSALE_AMT_SALE_PRICE !== '0.0' ? ' / Sold for ' + currencyFormat.format(listing.LSALE_AMT_SALE_PRICE) : ''}`,
-          about: `<span>${listing_details.type ? listing_details.type[0] : response.params.LC4_V46C }</span>${listing.LS_AMT_STRUCT_SQFT_ACT !== '0' ? '<span>' + listing.LS_AMT_STRUCT_SQFT_ACT + ' sqft</span>' : ''}<span>${listing.LS_TP_GARAGE && listing.LS_TP_GARAGE !== 'None' ? `<b>Garage</b>` : 'No Garage'}</span>`,
-          on_market: `${listing.L_LISTINGSTATUS} / ${listing.L_NO_DAYS_ON_MARKET > 1 ? daysToYMD(listing.L_NO_DAYS_ON_MARKET) : 'New'}`,
-          photo_url: `https://${listing.LP_PHOTO_URL}${listing.L_MLS_NUMBER}`,
-          photo_url_ext: `x.jpg`,
-          sw_url: `https://www.shorewest.com/${listing.L_LISTINGSTATE}/${listing.L_NM_COUNTY}/${listing.L_LISTINGCITY}/${listing.LSEARCH_DETAILURL}/${listing.L_MLS_NUMBER}-${listing.L_CD_SOURCE}`,
-        },
+    initializeMap(){
+      // https://docs.mapbox.com/mapbox.js/api/v3.3.1/
+      L.mapbox.accessToken = 'pk.eyJ1IjoianBtMjM0NTYiLCJhIjoiY2tjOWt2MDF0MWxuZDJ5bHFhbWg2NW9heCJ9.Gst9WJa4y4My23BGr20ulg';
+      this.map = L.mapbox.map('map');
+      this.map.scrollWheelZoom.disable();
+      this.map.attributionControl = false;
+      this.map.setView([43.070953,-87.882912], 15);
+      this.map.addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/streets-v11', { tileLayer: {format: 'jpg70'} }));
+      this.drawMapFeatures();
+      this.map.addEventListener('moveend', this.handleMapMoveEnd.bind(this) );
+    }
+    async drawMapFeatures(){
+      const response = await xhrURL({ method: 'POST', url: 'https://www.shorewest.com/vp/jsps/COMMON/maps_v6/sphinx3.jsp', content_type: 'application/x-www-form-urlencoded', params: this.params });
+      const data = JSON.parse(response);
+      this.features = await data.listings.map( (listing,index,listings) => this.setFeature(listing,index,listings) );
+      await this.map.eachLayer(layer => { if(!!layer.toGeoJSON) this.map.removeLayer(layer) });
+      const geojson_layer = { type: 'FeatureCollection', features: this.features };
+      const geojson_options = { pointToLayer: this.setMarker.bind(this) };
+      const geojson = await L.geoJson(geojson_layer,geojson_options);
+      geojson.addTo(this.map);
+    }
+    setFeature(listing,index,listings){
+      const same_location = listings.filter(filter_listing => listing.LL_RES_LAT === filter_listing.LL_RES_LAT && listing.LL_RES_LONG === filter_listing.LL_RES_LONG );
+      let stack_index = 0;
+      if(same_location.length) stack_index = same_location.reduce( (index,location_listing,i) => location_listing.L_MLS_NUMBER === listing.L_MLS_NUMBER ? i : null );
+      return { type: 'Feature', geometry: { type: 'Point', coordinates: [listing.LL_RES_LONG, listing.LL_RES_LAT] }, properties: { index: index, stack_index: stack_index, listing: listing } }
+    }
+    setMarker(feature, marker){
+      const title = kFormatter(feature.properties.listing.L_LISTING_PRICE);
+      const is_new = feature.properties.listing.L_LISTINGSTATUS !== 'Sold' && parseInt(feature.properties.listing.L_NO_DAYS_ON_MARKET) < 30;
+      const is_selected = this.active_listing && this.active_listing.L_MLS_NUMBER === feature.properties.listing.L_MLS_NUMBER;
+      const listing_marker = {
+        className: `listing-marker ${is_selected ? 'active' : ''} ${is_new ? 'new' : ''}`,
+        html: `<span data-index="${feature.properties.index}">${title}</span>`,
+        iconAnchor: [(title.length * 10) / 2, (14 / 2) + (8 * feature.properties.stack_index)],
+        iconSize: [(title.length * 10) + (is_new ? 10 : 0), 14 ]
+      };
+      return L.marker(marker, { riseOnHover: true, keyboard: false, icon: L.divIcon(listing_marker) });
+    }
+    handleMapClick(event){
+      if(!event.target.closest('.menu')) this.els.menu.classList.remove('fullheight');
+      const marker_el = event.target.closest('.listing-marker');
+      if(marker_el) this.handleMarkerClick(marker_el);
+    }
+    async handleMarkerClick(el){
+      this.els.menu.classList.remove('reveal','fullheight','images-ready');
+      this.active_listing = this.features[el.querySelector('span').dataset.index].properties.listing;
+      const marker_active_el = document.querySelector('.listing-marker.active');
+      if(marker_active_el) marker_active_el.classList.remove('active');
+      el.classList.add('active');
+      const price = this.active_listing.L_LISTINGSTATUS === 'Sold' ? this.active_listing.LSALE_AMT_SALE_PRICE : this.active_listing.L_LISTING_PRICE
+      const price_currency = currencyFormat(price);
+      const taxes_currency = currencyFormat(this.active_listing.L_LISTING_TAXES);
+      const has_garage = this.active_listing.LS_TP_GARAGE && this.active_listing.LS_TP_GARAGE !== 'None';
+      const display_date = this.active_listing.L_LISTINGSTATUS === 'Sold' ? `${this.active_listing.LSALE_DT_SALE_MM}-${this.active_listing.LSALE_DT_SALE_DD}-${this.active_listing.LSALE_DT_SALE_YYYY}` : daysToYMD(this.active_listing.L_NO_DAYS_ON_MARKET);
+      const shorewest_url = `https://www.shorewest.com/${this.active_listing.L_LISTINGSTATE}/${this.active_listing.L_NM_COUNTY}/${this.active_listing.L_LISTINGCITY}/${this.active_listing.LSEARCH_DETAILURL}/${this.active_listing.L_MLS_NUMBER}-${this.active_listing.L_CD_SOURCE}`;
+      this.els.details_images.innerHTML = ``;
+      this.els.notification_info.innerHTML = `
+        <div class="text-14 lh-18"><a href="${shorewest_url}" target="_blank">${price_currency}</a></div>
+        <div class="text-14 lh-18">${this.active_listing.L_LISTINGADDR1}</div>
+        <div class="text-12 lh-14">${taxes_currency} &bull; ${has_garage ? `` : `No `}Garage &bull; ${this.active_listing.L_LISTINGSTATUS} ${display_date ? ` &bull; ${display_date}` : ''}</div>
+      `;
+      this.els.notification_image.innerHTML = ``;
+      const photo_url = `https://${this.active_listing.LP_PHOTO_URL}${this.active_listing.L_MLS_NUMBER}Ax.jpg?w=825&h=464`;
+      const img_el = await loadImage(photo_url);
+      if(img_el && photo_url === img_el.src ) {
+        this.els.notification_view_images = await createNode({ root: this.els.notification_image, tag: 'span', innerHTML: `View ${this.active_listing.LSEARCH_NO_PHOTOS} Photo${Math.floor(this.active_listing.LSEARCH_NO_PHOTOS) !== 1 ? 's' : ''}`, event_listeners: { click: this.handleClickLoadImages.bind(this) } });
+        this.els.notification_image.append(img_el);
       }
-    });
-}
-
-const removeFeatures = async (map) => {
-  map.eachLayer((layer) => {
-    if (!!layer.toGeoJSON) map.removeLayer(layer);
-  });
-}
-
-const setFeatures = async (map,features) => {
-
-  await removeFeatures(map);
-  const geojson = await L.geoJson({ type: 'FeatureCollection', features: features }, {
-    // Set listing pop-up
-    onEachFeature: async function (feature, layer) {
-      //const image_el = document.querySelector('#listing-images');
-      //let url = layer.feature.properties.photo_url + String.fromCharCode(97 + 0) + layer.feature.properties.photo_url_ext;
-      const content_el = document.createElement('div');
-      content_el.classList.add('listing-feature');
-      content_el.dataset.image_url = layer.feature.properties.photo_url + String.fromCharCode(97 + 0) + layer.feature.properties.photo_url_ext;
-      content_el.dataset.index = layer.feature.properties.index;
-      content_el.innerHTML = content_el.innerHTML + `
-        <div>${layer.feature.properties.address_street}</div>
-        <div>${layer.feature.properties.price}</div>
-        <div class="listing-property">${layer.feature.properties.about}</div>
-        <div>${layer.feature.properties.on_market} / <a href="${layer.feature.properties.sw_url}" target="_blank">Link</a></div>`;
-      layer.bindPopup(content_el);
-    },
-    // Set listing marker as a label w/ price
-    pointToLayer: function(feature, ll) {
-      return L.marker(ll, {
-        icon: L.divIcon({
-          className: 'label',
-          html: `<div class="listing-marker" data-index="${feature.properties.index}">${feature.properties.title}</div>`,
-          iconSize: [45, 20]
-        })
-      });
+      this.els.menu.classList.add('reveal');
     }
-  })
-  geojson.addTo(map);
-}
-
-const clickFeature = async (e) => {
-  const leaflet_marker_el = e.target.closest('.leaflet-marker-icon');
-  const listing_el = e.target.closest('.listing-marker');
-  if(listing_el){
-    leaflet_marker_el.style.zIndex = parseInt(leaflet_marker_el.style.zIndex) - 1;
-    // console.log(listing_el.style.zIndex)
-    const feature = features[listing_el.dataset.index];
-    const url = feature.properties.photo_url + String.fromCharCode(97 + 0) + feature.properties.photo_url_ext;
-    const feature_el = document.querySelector('.listing-feature[data-index="'+listing_el.dataset.index+'"]');
-    if(feature_el.querySelector('.listing-image')) return;
-    let load_attempts = 0;
-    let image_loaded = false;
-    while(load_attempts < 3 && !image_loaded){
-      img = await loadImage(url);
-      if(img){
-        img.classList.add('listing-image');
-        img.dataset.index = listing_el.dataset.index;
-        feature_el.prepend(img);
-        image_loaded = true;
+    async handleClickLoadImages(event){
+      if(this.els.menu.classList.contains('images-ready')) return this.els.menu.classList.add('fullheight');
+      this.els.menu.classList.add('fullheight','images-ready');
+      this.els.details_images.innerHTML = ``;
+      for(let i = 0; i < parseInt(this.active_listing.LSEARCH_NO_PHOTOS); i++){
+        let char = i > 26 ? `-${i}` : String.fromCharCode(97 + i);
+        const photo_url = `https://${this.active_listing.LP_PHOTO_URL}${this.active_listing.L_MLS_NUMBER}${char}x.jpg?w=825&h=464`;
+        const img_el = await loadImage(photo_url);
+        if(!img_el) continue;
+        this.els.details_images.append(img_el);
       }
-      load_attempts++;
+    }
+    handleClickNotificationClose(event){
+      this.els.menu.classList.remove('reveal','fullheight','images-ready');
+    }
+    handleMapMoveEnd(event){
+      const bounds = event.target.getBounds();
+      this.params.LL_RES_LAT_LOW = bounds._southWest.lat;
+      this.params.LL_RES_LAT_HIGH = bounds._northEast.lat;
+      this.params.LL_RES_LONG_LOW = bounds._southWest.lng;
+      this.params.LL_RES_LONG_HIGH = bounds._northEast.lng;
+      this.drawMapFeatures();
+    }
+    handleFilterChange(event){
+      this.els.menu.classList.remove('reveal','fullheight','images-ready');
+      this.params.L_LISTINGSTATUS = this.els.filter_status.value;
+      this.params.LC4_V46C = this.els.filter_type.value;
+      this.params.LSEARCH_AMT_SEARCH_PRICE_LOW = this.els.filter_min.value;
+      this.params.LSEARCH_AMT_SEARCH_PRICE_HIGH = this.els.filter_max.value;
+      this.drawMapFeatures();
     }
   }
-}
-
-const clickImage = async (e) => {
-  const image_el = document.getElementById('listing-images');
-  const listing_image_el = e.target.closest('.listing-image');
-  image_el.innerHTML = '';
-  image_el.classList.add('hide');
-  if(!listing_image_el) return;
-  const feature = features[listing_image_el.dataset.index];
-  if(!feature) return;
-  let i = 0;
-  // Get photos from alpahbetic naming convention
-  while(i < 26){
-    let url = feature.properties.photo_url + String.fromCharCode(97 + i) + feature.properties.photo_url_ext;
-    img = await loadImage(url)
-    if(img === false) break;
-    image_el.appendChild(img);
-    if(image_el.classList.contains('hide')){
-      image_el.classList.remove('hide');
-    }
-    i++;
-  }
-}
-
-const mapMoveEnd = async (event) => {
-  const bounds = event.target.getBounds();
-  options.params.LL_RES_LAT_LOW = bounds._southWest.lat;
-  options.params.LL_RES_LAT_HIGH = bounds._northEast.lat;
-  options.params.LL_RES_LONG_LOW = bounds._southWest.lng;
-  options.params.LL_RES_LONG_HIGH = bounds._northEast.lng;
-  redrawMap();
-}
-
-const redrawMap = async () => {
-  features = await getFeatures();
-  await setFeatures(map,features);
-}
-
-const initializeMap = async () => {
-  // Initialize mapbox v.3.3.1 because its faster than mapbox-gl since it renders tiles server-side
-  L.mapbox.accessToken = 'pk.eyJ1IjoianBtMjM0NTYiLCJhIjoiY2tjOWt2MDF0MWxuZDJ5bHFhbWg2NW9heCJ9.Gst9WJa4y4My23BGr20ulg';
-  map = L.mapbox.map('map');
-  map.setView([43.070953,-87.882912], 15);
-  map.addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/streets-v11', { tileLayer: {format: 'jpg70'} }));
-
-  features = await getFeatures();
-  await setFeatures(map,features);
-  // Handle click event to load images
-  map.addEventListener('moveend', mapMoveEnd);
-  document.addEventListener('click', clickFeature);
-  document.addEventListener('click', clickImage);
-}
-
-const setPriceMax = (select) => {
-  const val = select.options[select.selectedIndex].value;
-  options.params.LSEARCH_AMT_SEARCH_PRICE_HIGH = val;
-}
-
-const setPriceMin = (select) => {
-  const val = select.options[select.selectedIndex].value;
-  options.params.LSEARCH_AMT_SEARCH_PRICE_LOW = val;
-}
-
-const setType = (select) => {
-  options.params.LC4_V46C = select.options[select.selectedIndex].value;
-}
-
-const init = async (event) => {
-  setPriceMax(document.getElementById('inputPriceMax'));
-  setPriceMin(document.getElementById('inputPriceMin'));
-  setType(document.getElementById('inputType'));
-
-  document.getElementById('inputPriceMin').addEventListener('change', async event => {
-    setPriceMin(event.target);
-    redrawMap();
-  });
-
-  document.getElementById('inputPriceMax').addEventListener('change', async event => {
-    setPriceMax(event.target);
-    redrawMap();
-  });
-
-  document.getElementById('inputType').addEventListener('change', async event => {
-    setType(event.target);
-    redrawMap();
-  });
-  document.getElementById('inputStatus').addEventListener('change', async event => {
-    options.params.L_LISTINGSTATUS = event.target.options[event.target.selectedIndex].value;
-    redrawMap();
-    //resetMap();
-  });
-  await initializeMap(options);
-}
-
-// Wait for init
-document.addEventListener('DOMContentLoaded', init)
-
-</script>
+  const app = new App();
+  </script>
 </head>
 <body>
-  <nav>
-    <select id="inputType">
-      <option value="Two Family|Multi-Family">Multi Family</option>
-      <option value="Single Family Residential">Single Family</option>
-      <option value="Condominium">Condominium</option>
-      <option value="Business/Commercial">Commercial</option>
-    </select>
-    <select id="inputStatus">
-      <option value="Active|Delayed">Active</option>
-      <option value="ActiveWO|Active w/Contract|Pending|Offer-Show|Offer">Contingent</option>
-      <!-- <option value="Sold">Sold</option> -->
-    </select>
-    <!-- <input id="inputPriceMinCustom" type="number" step="10000" value="250000" />
-    <input id="inputPriceMaxCustom" type="number" step="10000" value="350000" /> -->
-    <select id="inputPriceMin">
-      <option value="0" selected>0</option>
-      <option value="180000">180K</option>
-      <option value="250000">250K</option>
-      <option value="350000">350K</option>
-    </select>
-    <select id="inputPriceMax">
-      <option value="180000">80K</option>
-      <option value="250000">250k</option>
-      <option value="350000">350k</option>
-      <option value="450000">450K</option>
-      <option value="" selected>All</option>
-    </select>
-  </nav>
-  <div id="map"></div>
-  <div id="listing-images"></div>
+  <div id="root"></div>
 </body>
 </html>

@@ -1,0 +1,339 @@
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+
+<title>Real Estate Listings</title>
+<link rel="shortcut icon" href="building.png" /> <!-- Thanks for the favicon Yusuke Kamiyamane-->
+<script src="https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.js"></script>
+<link href="https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.css" rel="stylesheet" />
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body, textarea, input { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Ubuntu,sans-serif; color: #4f566b; }
+  body { text-align: center; box-sizing: border-box; font-size: 14px; line-height: 1.625; -webkit-font-smoothing: antialiased }
+
+  nav { position: absolute; z-index: 2; left: 100px; top: 30px; }
+  #listing-images { width: 400px; position: fixed; right: 30px; top: 30px; bottom: 30px; overflow: auto;}
+  .hide { display: none; }
+
+  img { width: 100%; background: #fff; }
+
+  #map { width: 100%; height: 100%; }
+  .listing-marker { background: #fff; line-height: 11px; color: #000; font-weight: bold; text-align: center; display: inline-block; font-size: 10px; padding: 0 2px; border-radius: 3px; border: 1px solid #000}
+  .listing-marker > span { color: orange; line-height: 0; position: relative; top: 6px; font-size: 26px; }
+  .listing-property > span:after { content: "/"; padding: 0 5px; }
+  .listing-property > span:last-child:after { content: ''; padding: 0; }
+  .listing-price { font-size: 16px; color: #000; }
+
+  .leaflet-popup { margin-bottom: 22px; }
+  .leaflet-popup-content-wrapper { border: 1px solid #000; }
+  .leaflet-popup-content { padding: 10px; }
+  .leaflet-popup-tip-container, .leaflet-popup-close-button { display: none; }
+</style>
+
+<script>
+
+let map;
+let features;
+let options = {
+  method: 'POST',
+  url: 'https://www.shorewest.com/vp/jsps/COMMON/maps_v6/sphinx3.jsp',
+  content_type: 'application/x-www-form-urlencoded',
+  params: {
+    SITE: 'SHOREW',
+    MAX_RESULT_COUNT: '1000',
+    LL_RES_LAT_LOW: '43.02194164700425',
+    LL_RES_LAT_HIGH: '43.11612005286264',
+    LL_RES_LONG_LOW: '-87.91606441140176',
+    LL_RES_LONG_HIGH: '-87.82388225197793',
+    L_LISTINGSTATUS: 'Active|Delayed',
+    LC4_V46C: 'Two Family|Multi-Family',
+    LSEARCH_AMT_SEARCH_PRICE_LOW: 0,
+    LSEARCH_AMT_SEARCH_PRICE_HIGH: 350000,
+    sortCriteria: 'l_listing_date DESC',
+  }
+}
+
+const xhrURL = (options) => {
+  return new Promise(function(resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.addEventListener('load', () => resolve({ success: true, data: JSON.parse(xhr.responseText), params: options.params }));
+    xhr.addEventListener('error', () => resolve({ success: false, message: 'Error getting the URL ' + options.url }));
+    xhr.open(options.method, options.url);
+    xhr.setRequestHeader('Content-type', options.content_type);
+    const params = new URLSearchParams(options.params).toString();
+    xhr.send(params);
+  });
+}
+
+const currencyFormat = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
+
+const kFormatter = num => {
+  return Math.abs(num) > 999 ? Math.sign(num)*((Math.abs(num)/1000).toFixed(1)) + 'k' : Math.sign(num)*Math.abs(num)
+}
+
+const daysToYMD = x => {
+  const y = 365;
+  const y2 = 31;
+  const remainder = x % y;
+  const casio = remainder % y2;
+  const year = (x - remainder) / y;
+  const month = (remainder - casio) / y2;
+  let result = `${(year ? year  + ' Years ': '')}${(month ? month + ' Months ' : '')}${(casio ? casio + ' Days ' : '')}`;
+  return result;
+}
+
+const loadImage = async url => {
+  return new Promise((resolve,reject) => {
+    let img = new Image();
+    img.src = url;
+    img.onload = () => {
+      if(img.naturalWidth === 0) return resolve(false)
+      return resolve(img);
+    }
+    img.onerror = () => {
+      return resolve(false)
+    }
+  })
+}
+
+const getFeatures = async () => {
+    // Get data from Shorewest
+    const response = await xhrURL(options)
+    //console.log(response.data.listings.length)
+    // Normalize data in GeoJson format
+
+    //"-87.903625" 0.000001
+
+    return await response.data.listings.map( (listing,i,listings) => {
+      const listing_details = JSON.parse(listing.LISTING_GENATTRIBS);
+      // const matches = listings.filter(match => match.L_CD_MLS !== listing.L_CD_MLS && match.LL_RES_LONG === listing.LL_RES_LONG && match.LL_RES_LAT === listing.LL_RES_LAT);
+      // const lat = matches ? parseFloat(listing.LL_RES_LAT) + 0.0001 : listing.LL_RES_LAT;
+      // const lng = matches ? parseFloat(listing.LL_RES_LONG) + 0.0001 : listing.LL_RES_LONG;
+      // console.log(listing.LL_RES_LAT,listing.LL_RES_LONG);
+      // console.log(lat,lng);
+      // console.log(matches)
+      return {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [listing.LL_RES_LONG, listing.LL_RES_LAT]
+        },
+        properties: {
+          index: i,
+          title: `${parseInt(listing.L_NO_DAYS_ON_MARKET) < 30 ? '<span>&bull;</span>' : ''}${kFormatter(listing.L_LISTING_PRICE)}`,
+          address_street: `${listing.L_LISTINGADDR1}`,
+          address: `${listing.L_LISTINGADDR1}, ${listing.L_LISTINGCITY} ${listing.L_LISTINGSTATE} ${listing.L_LISTINGZIP}`,
+          price: `<b class="listing-price">${currencyFormat.format(listing.L_LISTING_PRICE)}</b> + ${currencyFormat.format(listing.L_LISTING_TAXES)} Tax ${listing.LSALE_AMT_SALE_PRICE !== '0.0' ? ' / Sold for ' + currencyFormat.format(listing.LSALE_AMT_SALE_PRICE) : ''}`,
+          about: `<span>${listing_details.type ? listing_details.type[0] : response.params.LC4_V46C }</span>${listing.LS_AMT_STRUCT_SQFT_ACT !== '0' ? '<span>' + listing.LS_AMT_STRUCT_SQFT_ACT + ' sqft</span>' : ''}<span>${listing.LS_TP_GARAGE && listing.LS_TP_GARAGE !== 'None' ? `<b>Garage</b>` : 'No Garage'}</span>`,
+          on_market: `${listing.L_LISTINGSTATUS} / ${listing.L_NO_DAYS_ON_MARKET > 1 ? daysToYMD(listing.L_NO_DAYS_ON_MARKET) : 'New'}`,
+          photo_url: `https://${listing.LP_PHOTO_URL}${listing.L_MLS_NUMBER}`,
+          photo_url_ext: `x.jpg`,
+          sw_url: `https://www.shorewest.com/${listing.L_LISTINGSTATE}/${listing.L_NM_COUNTY}/${listing.L_LISTINGCITY}/${listing.LSEARCH_DETAILURL}/${listing.L_MLS_NUMBER}-${listing.L_CD_SOURCE}`,
+        },
+      }
+    });
+}
+
+const removeFeatures = async (map) => {
+  map.eachLayer((layer) => {
+    if (!!layer.toGeoJSON) map.removeLayer(layer);
+  });
+}
+
+const setFeatures = async (map,features) => {
+
+  await removeFeatures(map);
+  const geojson = await L.geoJson({ type: 'FeatureCollection', features: features }, {
+    // Set listing pop-up
+    onEachFeature: async function (feature, layer) {
+      //const image_el = document.querySelector('#listing-images');
+      //let url = layer.feature.properties.photo_url + String.fromCharCode(97 + 0) + layer.feature.properties.photo_url_ext;
+      const content_el = document.createElement('div');
+      content_el.classList.add('listing-feature');
+      content_el.dataset.image_url = layer.feature.properties.photo_url + String.fromCharCode(97 + 0) + layer.feature.properties.photo_url_ext;
+      content_el.dataset.index = layer.feature.properties.index;
+      content_el.innerHTML = content_el.innerHTML + `
+        <div>${layer.feature.properties.address_street}</div>
+        <div>${layer.feature.properties.price}</div>
+        <div class="listing-property">${layer.feature.properties.about}</div>
+        <div>${layer.feature.properties.on_market} / <a href="${layer.feature.properties.sw_url}" target="_blank">Link</a></div>`;
+      layer.bindPopup(content_el);
+    },
+    // Set listing marker as a label w/ price
+    pointToLayer: function(feature, ll) {
+      return L.marker(ll, {
+        icon: L.divIcon({
+          className: 'label',
+          html: `<div class="listing-marker" data-index="${feature.properties.index}">${feature.properties.title}</div>`,
+          iconSize: [45, 20]
+        })
+      });
+    }
+  })
+  geojson.addTo(map);
+}
+
+const clickFeature = async (e) => {
+  const leaflet_marker_el = e.target.closest('.leaflet-marker-icon');
+  const listing_el = e.target.closest('.listing-marker');
+  if(listing_el){
+    leaflet_marker_el.style.zIndex = parseInt(leaflet_marker_el.style.zIndex) - 1;
+    // console.log(listing_el.style.zIndex)
+    const feature = features[listing_el.dataset.index];
+    const url = feature.properties.photo_url + String.fromCharCode(97 + 0) + feature.properties.photo_url_ext;
+    const feature_el = document.querySelector('.listing-feature[data-index="'+listing_el.dataset.index+'"]');
+    if(feature_el.querySelector('.listing-image')) return;
+    let load_attempts = 0;
+    let image_loaded = false;
+    while(load_attempts < 3 && !image_loaded){
+      img = await loadImage(url);
+      if(img){
+        img.classList.add('listing-image');
+        img.dataset.index = listing_el.dataset.index;
+        feature_el.prepend(img);
+        image_loaded = true;
+      }
+      load_attempts++;
+    }
+  }
+}
+
+const clickImage = async (e) => {
+  const image_el = document.getElementById('listing-images');
+  const listing_image_el = e.target.closest('.listing-image');
+  image_el.innerHTML = '';
+  image_el.classList.add('hide');
+  if(!listing_image_el) return;
+  const feature = features[listing_image_el.dataset.index];
+  if(!feature) return;
+  let i = 0;
+  // Get photos from alpahbetic naming convention
+  while(i < 26){
+    let url = feature.properties.photo_url + String.fromCharCode(97 + i) + feature.properties.photo_url_ext;
+    img = await loadImage(url)
+    if(img === false) break;
+    image_el.appendChild(img);
+    if(image_el.classList.contains('hide')){
+      image_el.classList.remove('hide');
+    }
+    i++;
+  }
+}
+
+const mapMoveEnd = async (event) => {
+  const bounds = event.target.getBounds();
+  options.params.LL_RES_LAT_LOW = bounds._southWest.lat;
+  options.params.LL_RES_LAT_HIGH = bounds._northEast.lat;
+  options.params.LL_RES_LONG_LOW = bounds._southWest.lng;
+  options.params.LL_RES_LONG_HIGH = bounds._northEast.lng;
+  redrawMap();
+}
+
+const redrawMap = async () => {
+  features = await getFeatures();
+  await setFeatures(map,features);
+}
+
+const initializeMap = async () => {
+  // Initialize mapbox v.3.3.1 because its faster than mapbox-gl since it renders tiles server-side
+  L.mapbox.accessToken = 'pk.eyJ1IjoianBtMjM0NTYiLCJhIjoiY2tjOWt2MDF0MWxuZDJ5bHFhbWg2NW9heCJ9.Gst9WJa4y4My23BGr20ulg';
+  map = L.mapbox.map('map');
+  // map.dragging.disable();
+  map.setView([43.070953,-87.882912], 15);
+  map.addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/streets-v11', { tileLayer: {format: 'jpg70'} }));
+
+  features = await getFeatures();
+  await setFeatures(map,features);
+  // Handle click event to load images
+  map.addEventListener('moveend', mapMoveEnd);
+  document.addEventListener('click', clickFeature);
+  document.addEventListener('click', clickImage);
+}
+
+const setPriceMax = (select) => {
+  const val = select.options[select.selectedIndex].value;
+  options.params.LSEARCH_AMT_SEARCH_PRICE_HIGH = val;
+}
+
+const setPriceMin = (select) => {
+  const val = select.options[select.selectedIndex].value;
+  options.params.LSEARCH_AMT_SEARCH_PRICE_LOW = val;
+}
+
+const setType = (select) => {
+  options.params.LC4_V46C = select.options[select.selectedIndex].value;
+}
+
+const init = async (event) => {
+  setPriceMax(document.getElementById('inputPriceMax'));
+  setPriceMin(document.getElementById('inputPriceMin'));
+  setType(document.getElementById('inputType'));
+
+  document.getElementById('inputPriceMin').addEventListener('change', async event => {
+    setPriceMin(event.target);
+    redrawMap();
+  });
+
+  document.getElementById('inputPriceMax').addEventListener('change', async event => {
+    setPriceMax(event.target);
+    redrawMap();
+  });
+
+  document.getElementById('inputType').addEventListener('change', async event => {
+    setType(event.target);
+    redrawMap();
+  });
+  document.getElementById('inputStatus').addEventListener('change', async event => {
+    options.params.L_LISTINGSTATUS = event.target.options[event.target.selectedIndex].value;
+    redrawMap();
+    //resetMap();
+  });
+  await initializeMap(options);
+}
+
+// Wait for init
+document.addEventListener('DOMContentLoaded', init)
+
+</script>
+</head>
+<body>
+  <nav>
+    <select id="inputType">
+      <option value="Two Family|Multi-Family">Multi Family</option>
+      <option value="Single Family Residential">Single Family</option>
+      <option value="Condominium">Condominium</option>
+      <option value="Business/Commercial">Commercial</option>
+    </select>
+    <select id="inputStatus">
+      <option value="Active|Delayed">Active</option>
+      <option value="ActiveWO|Active w/Contract|Pending|Offer-Show|Offer">Contingent</option>
+      <!-- <option value="Sold">Sold</option> -->
+    </select>
+    <!-- <input id="inputPriceMinCustom" type="number" step="10000" value="250000" />
+    <input id="inputPriceMaxCustom" type="number" step="10000" value="350000" /> -->
+    <select id="inputPriceMin">
+      <option value="0" selected>0</option>
+      <option value="180000">180K</option>
+      <option value="250000">250K</option>
+      <option value="350000">350K</option>
+    </select>
+    <select id="inputPriceMax">
+      <option value="180000">80K</option>
+      <option value="250000">250k</option>
+      <option value="350000">350k</option>
+      <option value="450000">450K</option>
+      <option value="" selected>All</option>
+    </select>
+  </nav>
+  <div id="map"></div>
+  <div id="listing-images"></div>
+</body>
+</html>
