@@ -26,7 +26,6 @@ const loadImage = src => new Promise(resolve => {
   img.src = src;
 });
 
-
 const currencyFormat = (value) => {
   const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   return currency.format(value);
