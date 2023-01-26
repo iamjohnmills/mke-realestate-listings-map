@@ -135,17 +135,16 @@
       const marker_active_el = document.querySelector('.listing-marker.active');
       if(marker_active_el) marker_active_el.classList.remove('active');
       el.classList.add('active');
-      const price = this.active_listing.L_LISTINGSTATUS === 'Sold' ? this.active_listing.LSALE_AMT_SALE_PRICE : this.active_listing.L_LISTING_PRICE
-      const price_currency = currencyFormat(price);
-      const taxes_currency = currencyFormat(this.active_listing.L_LISTING_TAXES);
+      const price = this.active_listing.L_LISTING_PRICE;
+      const sale_price = this.active_listing.LSALE_AMT_SALE_PRICE;
       const has_garage = this.active_listing.LS_TP_GARAGE && this.active_listing.LS_TP_GARAGE !== 'None';
       const display_date = this.active_listing.L_LISTINGSTATUS === 'Sold' ? `${this.active_listing.LSALE_DT_SALE_MM}-${this.active_listing.LSALE_DT_SALE_DD}-${this.active_listing.LSALE_DT_SALE_YYYY}` : daysToYMD(this.active_listing.L_NO_DAYS_ON_MARKET);
       const shorewest_url = `https://www.shorewest.com/${this.active_listing.L_LISTINGSTATE}/${this.active_listing.L_NM_COUNTY}/${this.active_listing.L_LISTINGCITY}/${this.active_listing.LSEARCH_DETAILURL}/${this.active_listing.L_MLS_NUMBER}-${this.active_listing.L_CD_SOURCE}`;
       this.els.details_images.innerHTML = ``;
       this.els.notification_info.innerHTML = `
-        <div class="text-14 lh-18"><a href="${shorewest_url}" target="_blank">${price_currency}</a></div>
+        <div class="text-14 lh-18"><a href="${shorewest_url}" target="_blank">${currencyFormat(price)} ${sale_price ? `<span class="text-12">&bull; ${currencyFormat(sale_price)}</span>` : ''}</a></div>
         <div class="text-14 lh-18">${this.active_listing.L_LISTINGADDR1}</div>
-        <div class="text-12 lh-14">${taxes_currency} &bull; ${has_garage ? `` : `No `}Garage &bull; ${this.active_listing.L_LISTINGSTATUS} ${display_date ? ` &bull; ${display_date}` : ''}</div>
+        <div class="text-12 lh-14">${currencyFormat(this.active_listing.L_LISTING_TAXES)} &bull; ${has_garage ? `` : `No `}Garage &bull; ${this.active_listing.L_LISTINGSTATUS} ${display_date ? ` &bull; ${display_date}` : ''}</div>
       `;
       this.els.notification_image.innerHTML = ``;
       const photo_url = `https://${this.active_listing.LP_PHOTO_URL}${this.active_listing.L_MLS_NUMBER}Ax.jpg?w=825&h=464`;
