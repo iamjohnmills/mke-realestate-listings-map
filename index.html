@@ -63,7 +63,7 @@
       this.features = [];
       this.active_listing = null;
       this.loading_marker = false;
-      this.params = { SITE: 'SHOREW', MAX_RESULT_COUNT: '1000', LL_RES_LAT_LOW: '43.02194164700425', LL_RES_LAT_HIGH: '43.11612005286264', LL_RES_LONG_LOW: '-87.91606441140176', LL_RES_LONG_HIGH: '-87.82388225197793', L_LISTINGSTATUS: 'Active|Delayed', LC4_V46C: 'Two Family|Multi-Family', LSEARCH_AMT_SEARCH_PRICE_LOW: 0, LSEARCH_AMT_SEARCH_PRICE_HIGH: '', sortCriteria: 'l_listing_date DESC', }
+      this.params = { SITE: 'SHOREW', MAX_RESULT_COUNT: '1000', LL_RES_LAT_LOW: '43.02194164700425', LL_RES_LAT_HIGH: '43.11612005286264', LL_RES_LONG_LOW: '-87.91606441140176', LL_RES_LONG_HIGH: '-87.82388225197793', L_LISTINGSTATUS: 'Active|Delayed', LC4_V46C: 'Two Family|Multi-Family', LSEARCH_AMT_SEARCH_PRICE_LOW: 0, LSEARCH_AMT_SEARCH_PRICE_HIGH: '', LSEARCH_DT_LISTING_PRICECHG_CALC_DAYS_HIGH: '', sortCriteria: 'l_listing_date DESC', }
     }
     async init(){
       this.root = document.getElementById('root');
@@ -186,6 +186,7 @@
       this.params.LC4_V46C = this.els.filter_type.value;
       this.params.LSEARCH_AMT_SEARCH_PRICE_LOW = this.els.filter_min.value;
       this.params.LSEARCH_AMT_SEARCH_PRICE_HIGH = this.els.filter_max.value;
+      this.params.LSEARCH_DT_LISTING_PRICECHG_CALC_DAYS_HIGH = this.els.filter_status.value === 'Sold' ? 365 : '';
       this.drawMapFeatures();
     }
   }
