@@ -142,7 +142,7 @@
       const shorewest_url = `https://www.shorewest.com/${this.active_listing.L_LISTINGSTATE}/${this.active_listing.L_NM_COUNTY}/${this.active_listing.L_LISTINGCITY}/${this.active_listing.LSEARCH_DETAILURL}/${this.active_listing.L_MLS_NUMBER}-${this.active_listing.L_CD_SOURCE}`;
       this.els.details_images.innerHTML = ``;
       this.els.notification_info.innerHTML = `
-        <div class="text-14 lh-18"><a href="${shorewest_url}" target="_blank">${currencyFormat(price)} ${sale_price ? `<span class="text-12">&bull; ${currencyFormat(sale_price)}</span>` : ''}</a></div>
+        <div class="text-14 lh-18"><a href="${shorewest_url}" target="_blank">${currencyFormat(price)} ${Math.floor(sale_price) ? `<span class="text-12">&bull; ${currencyFormat(sale_price)}</span>` : ''}</a></div>
         <div class="text-14 lh-18">${this.active_listing.L_LISTINGADDR1}</div>
         <div class="text-12 lh-14">${currencyFormat(this.active_listing.L_LISTING_TAXES)} &bull; ${has_garage ? `` : `No `}Garage &bull; ${this.active_listing.L_LISTINGSTATUS} ${display_date ? ` &bull; ${display_date}` : ''}</div>
       `;
