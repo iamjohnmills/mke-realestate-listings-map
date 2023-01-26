@@ -49,3 +49,18 @@ const daysToYMD = x => {
   if(month) return `${month} Month${month !== 1 ? 's' :''}`;
   else if(casio) return `${casio} Day${casio !== 1 ? 's' :''}`;
 }
+
+const timeSince = date => {
+  const intervals = [
+    { label: 'Year', seconds: 31536000 },
+    { label: 'Month', seconds: 2592000 },
+    { label: 'Day', seconds: 86400 },
+    { label: 'Hour', seconds: 3600 },
+    { label: 'Minute', seconds: 60 },
+    { label: 'Second', seconds: 1 }
+  ];
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  const interval = intervals.find(i => i.seconds < seconds);
+  const count = Math.floor(seconds / interval.seconds);
+  return `${count} ${interval.label}${count !== 1 ? 's' : ''} ago`;
+}

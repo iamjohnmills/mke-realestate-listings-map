@@ -135,16 +135,21 @@
       const marker_active_el = document.querySelector('.listing-marker.active');
       if(marker_active_el) marker_active_el.classList.remove('active');
       el.classList.add('active');
-      const price = this.active_listing.L_LISTING_PRICE;
-      const sale_price = this.active_listing.LSALE_AMT_SALE_PRICE;
-      const has_garage = this.active_listing.LS_TP_GARAGE && this.active_listing.LS_TP_GARAGE !== 'None';
-      const display_date = this.active_listing.L_LISTINGSTATUS === 'Sold' ? `${this.active_listing.LSALE_DT_SALE_MM}-${this.active_listing.LSALE_DT_SALE_DD}-${this.active_listing.LSALE_DT_SALE_YYYY}` : daysToYMD(this.active_listing.L_NO_DAYS_ON_MARKET);
-      const shorewest_url = `https://www.shorewest.com/${this.active_listing.L_LISTINGSTATE}/${this.active_listing.L_NM_COUNTY}/${this.active_listing.L_LISTINGCITY}/${this.active_listing.LSEARCH_DETAILURL}/${this.active_listing.L_MLS_NUMBER}-${this.active_listing.L_CD_SOURCE}`;
-      this.els.details_images.innerHTML = ``;
+      const display = {
+        price: currencyFormat(this.active_listing.L_LISTING_PRICE),
+        address: this.active_listing.L_LISTINGADDR1,
+        taxes: currencyFormat(this.active_listing.L_LISTING_TAXES),
+        garage: this.active_listing.LS_TP_GARAGE && this.active_listing.LS_TP_GARAGE !== 'None' ? `&bull; Has Garage` : `&bull; No Garage`,
+        status: this.active_listing.L_LISTINGSTATUS !== 'Sold' ? `&bull; ${this.active_listing.L_LISTINGSTATUS}` : ``,
+        duration: this.active_listing.L_LISTINGSTATUS !== 'Sold' ? `&bull; ${daysToYMD(this.active_listing.L_NO_DAYS_ON_MARKET)}` : ``,
+        shorewest_url: `https://www.shorewest.com/${this.active_listing.L_LISTINGSTATE}/${this.active_listing.L_NM_COUNTY}/${this.active_listing.L_LISTINGCITY}/${this.active_listing.LSEARCH_DETAILURL}/${this.active_listing.L_MLS_NUMBER}-${this.active_listing.L_CD_SOURCE}`,
+        sale_price: Math.floor(this.active_listing.LSALE_AMT_SALE_PRICE) ? `<span class="text-12">&bull; ${currencyFormat(this.active_listing.LSALE_AMT_SALE_PRICE)}</span>` : ``,
+        sale_date_ago: this.active_listing.L_LISTINGSTATUS === 'Sold' ? `&bull; ${timeSince(new Date(`${this.active_listing.LSALE_DT_SALE_MM}/${this.active_listing.LSALE_DT_SALE_DD}/${this.active_listing.LSALE_DT_SALE_YYYY}`))}` : ``,
+      }
       this.els.notification_info.innerHTML = `
-        <div class="text-14 lh-18"><a href="${shorewest_url}" target="_blank">${currencyFormat(price)} ${Math.floor(sale_price) ? `<span class="text-12">&bull; ${currencyFormat(sale_price)}</span>` : ''}</a></div>
-        <div class="text-14 lh-18">${this.active_listing.L_LISTINGADDR1}</div>
-        <div class="text-12 lh-14">${currencyFormat(this.active_listing.L_LISTING_TAXES)} &bull; ${has_garage ? `` : `No `}Garage &bull; ${this.active_listing.L_LISTINGSTATUS} ${display_date ? ` &bull; ${display_date}` : ''}</div>
+        <div class="text-14 lh-18"><a href="${display.shorewest_url}" target="_blank">${display.price} ${display.sale_price}</a></div>
+        <div class="text-14 lh-18">${display.address}</div>
+        <div class="text-12 lh-14">${display.taxes} ${display.garage} ${display.status} ${display.duration} ${display.sale_date_ago}</div>
       `;
       this.els.notification_image.innerHTML = ``;
       const photo_url = `https://${this.active_listing.LP_PHOTO_URL}${this.active_listing.L_MLS_NUMBER}Ax.jpg?w=825&h=464`;
