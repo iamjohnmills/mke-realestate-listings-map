@@ -19,6 +19,7 @@
   .leaflet-marker-icon { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Ubuntu,sans-serif; background: linear-gradient(0deg, rgba(230,230,230,1) 0%, rgba(255,255,255,1) 100%); line-height: 14px; color: #000; font-weight: bold; text-align: center; display: inline-block; font-size: 11px; padding: 0 2px; border-radius: 3px; box-shadow: 0 0 1px 1px rgba(0,0,0,0.2); }
   .leaflet-marker-icon.active { background: linear-gradient(0deg, rgba(26,26,26,1) 0%, rgba(64,64,64,1) 100%); color: #fff; z-index: 9999 !important; box-shadow: unset; }
   .leaflet-marker-icon.new:before { content: '•'; color: orange; line-height: 0; position: relative; top: 3px; font-size: 22px; font-style: normal;}
+  .leaflet-marker-icon.delayed:before { content: '•'; color: deepskyblue; line-height: 0; position: relative; top: 3px; font-size: 22px; font-style: normal;}
   .leaflet-control-zoom { display: flex; flex-direction: row-reverse; border-radius: 4px; box-shadow: 0 0 1px 1px rgba(0,0,0,0.2); border: unset !important; }
   .leaflet-bar .leaflet-control-zoom-in,
   .leaflet-bar .leaflet-control-zoom-out { width: 35px; height: 26px; border-left: 1px solid rgba(0,0,0,.1); text-indent: unset; display: flex; align-items: center; justify-content: center; color: #000; font-size: 18px; font-weight: bold; background: linear-gradient(0deg, rgba(230,230,230,1) 0%, rgba(255,255,255,1) 100%); background-position: unset;  }
@@ -112,13 +113,14 @@
     }
     setMarker(feature, marker){
       const title = kFormatter(feature.properties.listing.L_LISTING_PRICE);
-      const is_new = feature.properties.listing.L_LISTINGSTATUS !== 'Sold' && parseInt(feature.properties.listing.L_NO_DAYS_ON_MARKET) < 30;
+      const is_delayed = feature.properties.listing.L_LISTINGSTATUS === 'Delayed';
+      const is_new = !is_delayed && feature.properties.listing.L_LISTINGSTATUS !== 'Sold' && parseInt(feature.properties.listing.L_NO_DAYS_ON_MARKET) < 30;
       const is_selected = this.active_listing && this.active_listing.L_MLS_NUMBER === feature.properties.listing.L_MLS_NUMBER;
       const listing_marker = {
-        className: `listing-marker ${is_selected ? 'active' : ''} ${is_new ? 'new' : ''}`,
+        className: `listing-marker ${is_delayed ? 'delayed' : ''} ${is_selected ? 'active' : ''} ${is_new ? 'new' : ''}`,
         html: `<span data-index="${feature.properties.index}">${title}</span>`,
         iconAnchor: [(title.length * 10) / 2, (14 / 2) + (8 * feature.properties.stack_index)],
-        iconSize: [(title.length * 10) + (is_new ? 10 : 0), 14 ]
+        iconSize: [(title.length * 10) + (is_new || is_delayed ? 10 : 0), 14 ]
       };
       return L.marker(marker, { riseOnHover: true, keyboard: false, icon: L.divIcon(listing_marker) });
     }
@@ -141,9 +143,9 @@
         taxes: currencyFormat(this.active_listing.L_LISTING_TAXES),
         garage: this.active_listing.LS_TP_GARAGE && this.active_listing.LS_TP_GARAGE !== 'None' ? `&bull; Has Garage` : `&bull; No Garage`,
         status: this.active_listing.L_LISTINGSTATUS !== 'Sold' ? `&bull; ${this.active_listing.L_LISTINGSTATUS}` : ``,
-        duration: this.active_listing.L_LISTINGSTATUS !== 'Sold' ? `&bull; ${daysToYMD(this.active_listing.L_NO_DAYS_ON_MARKET)}` : ``,
+        duration: this.active_listing.L_LISTINGSTATUS !== 'Sold' && this.active_listing.L_LISTINGSTATUS !== 'Delayed' ? `&bull; ${daysToYMD(this.active_listing.L_NO_DAYS_ON_MARKET)}` : ``,
         shorewest_url: `https://www.shorewest.com/${this.active_listing.L_LISTINGSTATE}/${this.active_listing.L_NM_COUNTY}/${this.active_listing.L_LISTINGCITY}/${this.active_listing.LSEARCH_DETAILURL}/${this.active_listing.L_MLS_NUMBER}-${this.active_listing.L_CD_SOURCE}`,
-        sale_price: Math.floor(this.active_listing.LSALE_AMT_SALE_PRICE) ? `<span class="text-12">&bull; ${currencyFormat(this.active_listing.LSALE_AMT_SALE_PRICE)}</span>` : ``,
+        sale_price: this.active_listing.L_LISTINGSTATUS === 'Sold' ? `<span class="text-12">&bull; ${currencyFormat(this.active_listing.LSALE_AMT_SALE_PRICE)}</span>` : ``,
         sale_date_ago: this.active_listing.L_LISTINGSTATUS === 'Sold' ? `&bull; ${timeSince(new Date(`${this.active_listing.LSALE_DT_SALE_MM}/${this.active_listing.LSALE_DT_SALE_DD}/${this.active_listing.LSALE_DT_SALE_YYYY}`))}` : ``,
       }
       this.els.notification_info.innerHTML = `
